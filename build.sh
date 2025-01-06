@@ -14,7 +14,7 @@ if [ "$1" = "clean" ]; then
 
 	if [ -d "${ROOT_PWD}/install" ]; then
 		rm -rf "${ROOT_PWD}/install"
-		echo -e " ${GREEN}${ROOT_PWD}/install has been deleted!${NC}"
+		echo -e "${GREEN}${ROOT_PWD}/install has been deleted!${NC}"
 	fi
 	echo -e "${GREEN}clean done!${NC}"
 	exit

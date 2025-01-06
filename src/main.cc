@@ -12,20 +12,26 @@
 #include <unistd.h>
 #include <vector>
 #include "sample_comm.h"
+#include "pthread.h"
 
-#define video_hight 1920
-#define video_width 1080
+#define vi_video_hight 1920
+#define vi_video_width 1080
 #define MD_hight 640
 #define MD_width 360
 #define MD_area_threshold 0.3
-
-
-
 
 typedef struct _rkMpiCtx
 {
 	SAMPLE_VI_CTX_S vi;
 } SAMPLE_MPI_CTX_S;
+
+static MPP_CHN_S vi_chn, ivs_chn;
+int md_area_threshold_rate = 0.3;
+static int g_main_run_ = 1;
+pthread_t MD_thread, recorder_thread;
+pthread_mutex_t mutex;
+pthread_cond_t cond_var;
+int motion_detected = 0;
 
 RK_U64 TEST_COMM_GetNowUs()
 {
@@ -34,11 +40,87 @@ RK_U64 TEST_COMM_GetNowUs()
 	return (RK_U64)time.tv_sec * 1000000 + (RK_U64)time.tv_nsec / 1000; /* microseconds */
 }
 
-static MPP_CHN_S vi_chn, ivs_chn;
-int md_area_threshold = 640 * 360 * 0.3;
+int motion_detecter(int chnId, float md_area_threshold_rate)
+{
+	int flag = 0;
+	IVS_RESULT_INFO_S stResults;
+	memset(&stResults, 0, sizeof(IVS_RESULT_INFO_S));
+	RK_S32 s32Ret = RK_SUCCESS;
+	s32Ret = RK_MPI_IVS_GetResults(chnId, &stResults, 1000);
+	if (s32Ret == RK_SUCCESS)
+	{
+		if (stResults.s32ResultNum == 1)
+		{
+			printf("MD u32RectNum: %u\n", stResults.pstResults->stMdInfo.u32RectNum);
+			if (stResults.pstResults->stMdInfo.u32Square > MD_hight * MD_width * md_area_threshold_rate)
+				flag = 1;
+		}
+		RK_MPI_IVS_ReleaseResults(0, &stResults);
+		return flag;
+	}
+	else
+	{
+		printf("RK_MPI_IVS_GetResults fail %x", s32Ret);
+		return RK_FAILURE;
+	}
+}
+
+static void sig_proc(int signo)
+{
+	printf("received signo %d \n", signo);
+	g_main_run_ = 0;
+	pthread_detach(MD_thread);
+}
+
+static void *MD_result_updater(void *arg)
+{
+	while (g_main_run_ == 1)
+	{
+		usleep(33333);
+		pthread_mutex_lock(&mutex);
+		motion_detected = motion_detecter(0, md_area_threshold_rate);
+		pthread_cond_signal(&cond_var);
+		pthread_mutex_unlock(&mutex);
+	}
+}
+
+static void *video_recorder(void *arg)
+{
+	while (g_main_run_ == 1)
+	{
+		pthread_mutex_lock(&mutex);
+		while (motion_detected == 0)
+		{
+			printf("waiting for motion\n");
+			pthread_cond_wait(&cond_var, &mutex); // 等待运动检测信号
+		}
+		printf("motion detected, high rate recording...\n");
+		printf("update rate 30 \n");
+		for(int i = 29; i > 0; i--)
+		{
+			printf("recording...%d\n", i);
+			sleep(1);
+		}
+		motion_detected = motion_detecter(0, md_area_threshold_rate);
+		sleep(1);
+		if(motion_detected == 0)
+		{
+			printf("motion end, low rate recording...\n");
+			printf("update rate 1 \n");
+		}
+		else
+		{
+			printf("motion continue, high rate recording...\n");
+		}
+		pthread_mutex_unlock(&mutex);
+	}
+	return NULL;
+}
 
 int main(int argc, char *argv[])
 {
+	signal(SIGTERM, sig_proc);
+	signal(SIGINT, sig_proc);
 	system("RkLunch-stop.sh");
 	// config vi
 	RK_S32 s32Ret = RK_SUCCESS;
@@ -125,7 +207,7 @@ int main(int argc, char *argv[])
 	stMdAttr.s32SwitchSad = 0;
 	// update configuration
 	s32Ret = RK_MPI_IVS_SetMdAttr(0, &stMdAttr);
-	if (s32Ret)
+	if (s32Ret == RK_FAILURE)
 	{
 		while (1)
 		{
@@ -140,45 +222,23 @@ int main(int argc, char *argv[])
 	ivs_chn.s32DevId = 0;
 	ivs_chn.s32ChnId = 0;
 	s32Ret = RK_MPI_SYS_Bind(&vi_chn, &ivs_chn);
-	if (s32Ret)
+	if (s32Ret == RK_FAILURE)
 	{
 		while (1)
 		{
 			printf("ivs set mdattr failed:%x", s32Ret);
 		}
 	}
-	IVS_RESULT_INFO_S stResults;
-	memset(&stResults, 0, sizeof(IVS_RESULT_INFO_S));
-	while (1)
+	pthread_create(&MD_thread, NULL, MD_result_updater, NULL);
+	pthread_create(&recorder_thread, NULL, video_recorder, NULL);
+	pthread_join(MD_thread, NULL);
+	pthread_join(recorder_thread, NULL);
+	while (g_main_run_ == 1)
 	{
-		s32Ret = RK_MPI_IVS_GetResults(0, &stResults, -1);
-		if (s32Ret == RK_SUCCESS)
-		{
-			if (stResults.s32ResultNum == 1)
-			{
-				printf("MD u32RectNum: %u\n", stResults.pstResults->stMdInfo.u32RectNum);
-				//for (int i = 0; i < stResults.pstResults->stMdInfo.u32RectNum; i++)
-				{
-					if (stResults.pstResults->stMdInfo.u32Square > md_area_threshold)
-					{
-						printf("MD: md_area is %d, md_area_threshold is %d\n",
-					         stResults.pstResults->stMdInfo.u32Square, md_area_threshold);
-						/*printf("%d: [%d, %d, %d, %d]\n", i,
-							   stResults.pstResults->stMdInfo.stRect[i].s32X,
-							   stResults.pstResults->stMdInfo.stRect[i].s32Y,
-							   stResults.pstResults->stMdInfo.stRect[i].u32Width,
-							   stResults.pstResults->stMdInfo.stRect[i].u32Height);*/
-					}
-				}
-			}
-			RK_MPI_IVS_ReleaseResults(0, &stResults);
-		}
-		else
-		{
-			RK_LOGE("RK_MPI_IVS_GetResults fail %x", s32Ret);
-		}
+		sleep(100);
 	}
-
+	pthread_mutex_destroy(&mutex);
+	pthread_cond_destroy(&cond_var);
 
 	// Destory Pool
 	RK_MPI_VI_DisableChn(0, 0);
