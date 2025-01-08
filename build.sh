@@ -4,7 +4,14 @@ GREEN='\e[32;1m'
 NC='\033[0m' # No Color
 #switch to the script's directory
 ROOT_PWD=$(cd "$(dirname $0)" && pwd)
-
+# Function to handle signals function 
+handle_signal() { 
+	echo -e "\n${RED}Signal caught, rebooting device...${NC}" 
+	adb shell reboot 
+	exit 
+} 
+# Trap signals 
+trap handle_signal SIGINT
 #clean build folder
 if [ "$1" = "clean" ]; then
 	if [ -d "${ROOT_PWD}/build" ]; then
