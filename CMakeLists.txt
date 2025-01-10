@@ -15,6 +15,7 @@ project("MyMD")
 
 # Set the library directory
 link_directories(${CMAKE_CURRENT_SOURCE_DIR}/lib)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/ 3rdparty.out)
 
 set(CMAKE_INSTALL_RPATH "$ORIGIN/lib")
 add_definitions(-DRV1106_1103)
@@ -44,6 +45,7 @@ target_link_libraries(${PROJECT_NAME}
                     rkaiq
                     pthread
                     rtsp
+                    sqlite3
                     )
 
 target_include_directories(${PROJECT_NAME} PRIVATE                        
@@ -67,4 +69,12 @@ target_include_directories(${PROJECT_NAME} PRIVATE
                           
 
 set(CMAKE_INSTALL_PREFIX "${CMAKE_CURRENT_SOURCE_DIR}/install/${PROJECT_NAME}_demo")
-install(TARGETS ${PROJECT_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX})                
+install(TARGETS ${PROJECT_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX})    
+
+# sqlite so files
+file(GLOB SQLITE_SO_FILES "${CMAKE_CURRENT_SOURCE_DIR}/lib/libsqlite3.so*")
+message(STATUS "SQLite SO files found: ${SQLITE_SO_FILES}")
+install(FILES ${SQLITE_SO_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
+
+
+
