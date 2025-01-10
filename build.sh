@@ -39,13 +39,12 @@ if [ $? -eq 0 ]; then
 	echo -e "${GREEN}Make executed successfully${NC}"
 	echo "Pushing the install folder to the RV1106 board" 
 	#copy the install folder to the RV1106 board
-	adb shell ./oem/usr/bin/RkLunch-stop.sh
+	#adb shell ./oem/usr/bin/RkLunch-stop.sh
 	adb shell rm -rf /mnt/sdcard/MyMD_demo
 	adb push ${ROOT_PWD}/install/MyMD_demo /mnt/sdcard/
 	adb shell chmod +x /mnt/sdcard/MyMD_demo/MyMD
 	echo "executing the program on the RV1106 board"
 	adb shell ./mnt/sdcard/MyMD_demo/MyMD
-	# 这里可以添加其他需要执行的命令 
 else 
 	echo -e "${RED}Make failed to execute${NC}"
 fi

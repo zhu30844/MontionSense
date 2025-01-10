@@ -14,6 +14,7 @@
 #include "sample_comm.h"
 #include "pthread.h"
 #include "video.h"
+#include "sqlite_comm.h"
 
 static int g_main_run_ = 1;
 
@@ -32,12 +33,13 @@ int main(int argc, char *argv[])
 	system("RkLunch-stop.sh");
 	// init mpi
 	RK_MPI_SYS_Init();
-	rk_video_init();
+	//rk_video_init();
+	testSQLite();
 	while (g_main_run_ == 1)
 	{
 		sleep(100);
 	}
-	rk_video_deinit();
+	//rk_video_deinit();
 	RK_MPI_SYS_Exit();
 	return 0;
 }

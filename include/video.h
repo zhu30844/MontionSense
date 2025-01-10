@@ -1,3 +1,6 @@
+#ifndef __VIDEO_H__
+#define __VIDEO_H__
+
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -32,3 +35,5 @@ int rkipc_ivs_deinit();
 int frame_rate_setter(int, int);
 int rk_video_deinit();
 int rk_video_init();
+
+#endif /* VIDEO_H */
