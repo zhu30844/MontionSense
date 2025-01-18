@@ -1,105 +1,72 @@
 #include "video.h"
-
+extern "C"{
+#include "ts.h"
+}
 
 #define MD_area_threshold 0.3
 #define VIDEO_PIPE_2 2
 
-static MPP_CHN_S vi_chn[3], ivs_chn, venc_chn[2];
-float md_area_threshold_rate = 0.3;
+static MPP_CHN_S vi_chn[3], venc_chn[2], ivs_chn;
+float md_area_threshold_rate = 0.5;
 static int g_video_run_ = 1;
 static int pipe_id_ = 0;
-pthread_t frame_rate_updater_thread, rkipc_get_venc_0_thread,rkipc_get_venc_1_thread;
+pthread_t frame_rate_updater_thread, rkipc_get_venc_0_thread, rkipc_get_venc_1_thread;
+pthread_rwlock_t frame_rate_rwlock;
 volatile int motion_detected = 0;
-volatile int motion_detected_pre = 0;
+int video_frame_rate = 1;
 RK_U32 vi_video_hight = 1080;
 RK_U32 vi_video_width = 1920;
 RK_U32 MD_hight = 1080; // 640 360
 RK_U32 MD_width = 1920; // 1920 1080 2304 1296
 
-
-RK_U64 TEST_COMM_GetNowUs()
+static void *rkipc_get_venc_0(void *arg)
 {
-	struct timespec time = {0, 0};
-	clock_gettime(CLOCK_MONOTONIC, &time);
-	return (RK_U64)time.tv_sec * 1000000 + (RK_U64)time.tv_nsec / 1000; /* microseconds */
-}
-
-static void *frame_rate_updater(void *arg)
-{
-	while (g_video_run_ == 1)
+	storage_init();
+	VENC_STREAM_S stFrame;
+	int ret = 0;
+	// prepare the frame
+	stFrame.pstPack = (VENC_PACK_S *)malloc(sizeof(VENC_PACK_S));
+	// frame rate control
+	int frame_cycle_time_ms = 1000;
+	long long before_time, cost_time;
+	while (g_video_run_)
 	{
-		usleep(33333);
-		motion_detected = motion_detecter(0);
-		if (motion_detected == 1)
+		before_time = get_curren_time_ms();
+		// get current frame rate
+		pthread_rwlock_rdlock(&frame_rate_rwlock);
+		frame_cycle_time_ms = 1000 / video_frame_rate;
+		pthread_rwlock_unlock(&frame_rate_rwlock);
+		printf("frame_cycle_time_ms is %d\n video_frame_rate is %d\n",
+		 frame_cycle_time_ms, video_frame_rate);
+		// get the frame
+		ret = RK_MPI_VENC_GetStream(0, &stFrame, 2500);
+		if (ret == RK_SUCCESS)
 		{
-			if (motion_detected_pre == 0)
-			{
-				printf("update video rate to 30\n");
-				if (frame_rate_setter(0, 30) == RK_FAILURE)
-					printf("frame_rate_setter error\n");
-			}
+			void *data = RK_MPI_MB_Handle2VirAddr(stFrame.pstPack->pMbBlk);
+			//write_ts_2_SD((RK_U8 *)data, stFrame.pstPack->u32Len,1);
+			// release the frame
+			write_raw((RK_U8 *)data, stFrame.pstPack->u32Len);
+			ret = RK_MPI_VENC_ReleaseStream(0, &stFrame);
+			if (ret != RK_SUCCESS)
+				printf("RK_MPI_VENC_ReleaseStream fail %x\n", ret);
 		}
 		else
 		{
-			if (motion_detected_pre == 1)
-			{
-				printf("update video rate to 1\n");
-				if (frame_rate_setter(0, 1) == RK_FAILURE)
-					printf("frame_rate_setter error\n");
-				
-			}
-			// record video
-		}
-		motion_detected_pre = motion_detected;
-	}
-	return NULL;
-}
-
-static void *rkipc_get_venc_0(void *arg) {
-	VENC_STREAM_S stFrame;
-	VI_CHN_STATUS_S stChnStatus;
-	int loopCount = 0;
-	int ret = 0;
-	// FILE *fp = fopen("/data/venc.h265", "wb");
-	stFrame.pstPack = (VENC_PACK_S *)malloc(sizeof(VENC_PACK_S));
-
-	while (g_video_run_) {
-		// 5.get the frame
-		ret = RK_MPI_VENC_GetStream(0, &stFrame, 2500);
-		if (ret == RK_SUCCESS) {
-			void *data = RK_MPI_MB_Handle2VirAddr(stFrame.pstPack->pMbBlk);
-			// fwrite(data, 1, stFrame.pstPack->u32Len, fp);
-			// fflush(fp);
-			// LOG_DEBUG("Count:%d, Len:%d, PTS is %" PRId64", enH264EType is %d\n", loopCount,
-			// stFrame.pstPack->u32Len, stFrame.pstPack->u64PTS,
-			// stFrame.pstPack->DataType.enH264EType);
-			// 6.write the frame
-			// write P/b frame 
-			printf("write P/b frame\n");
-			if ((stFrame.pstPack->DataType.enH264EType == H264E_NALU_IDRSLICE) ||
-			    (stFrame.pstPack->DataType.enH264EType == H264E_NALU_ISLICE)) {
-				// write I frame
-				printf("write I frame\n");
-			}
-			// 7.release the frame
-			ret = RK_MPI_VENC_ReleaseStream(0, &stFrame);
-			if (ret != RK_SUCCESS) {
-				printf("RK_MPI_VENC_ReleaseStream fail %x\n", ret);
-			}
-			loopCount++;
-		} else {
 			printf("RK_MPI_VENC_GetStream timeout %x\n", ret);
 		}
+		cost_time = get_curren_time_ms() - before_time;
+		printf("cost_time is %lld\n", cost_time);
+		if ((cost_time > 0) && (cost_time < frame_cycle_time_ms))
+			usleep((frame_cycle_time_ms - cost_time) * 1000);
 	}
 	if (stFrame.pstPack)
 		free(stFrame.pstPack);
-	// if (fp)
-	// fclose(fp);
-
+	storage_deinit();
 	return 0;
 }
 
-static void *rkipc_get_venc_1(void *arg) {
+static void *rkipc_get_venc_1(void *arg)
+{
 	VENC_STREAM_S stFrame;
 	VI_CHN_STATUS_S stChnStatus;
 	int loopCount = 0;
@@ -107,10 +74,12 @@ static void *rkipc_get_venc_1(void *arg) {
 	// FILE *fp = fopen("/data/venc.h265", "wb");
 	stFrame.pstPack = (VENC_PACK_S *)malloc(sizeof(VENC_PACK_S));
 
-	while (g_video_run_) {
+	while (g_video_run_)
+	{
 		// 5.get the frame
 		ret = RK_MPI_VENC_GetStream(1, &stFrame, 2500);
-		if (ret == RK_SUCCESS) {
+		if (ret == RK_SUCCESS)
+		{
 			void *data = RK_MPI_MB_Handle2VirAddr(stFrame.pstPack->pMbBlk);
 			// fwrite(data, 1, stFrame.pstPack->u32Len, fp);
 			// fflush(fp);
@@ -118,20 +87,22 @@ static void *rkipc_get_venc_1(void *arg) {
 			// stFrame.pstPack->u32Len, stFrame.pstPack->u64PTS,
 			// stFrame.pstPack->DataType.enH264EType);
 			// 6.write the frame
-			// write P/b frame 
-			printf("write P/b frame\n");
+			// write P/b frame
 			if ((stFrame.pstPack->DataType.enH264EType == H264E_NALU_IDRSLICE) ||
-			    (stFrame.pstPack->DataType.enH264EType == H264E_NALU_ISLICE)) {
+				(stFrame.pstPack->DataType.enH264EType == H264E_NALU_ISLICE))
+			{
 				// write I frame
-				printf("write I frame\n");
 			}
 			// 7.release the frame
 			ret = RK_MPI_VENC_ReleaseStream(1, &stFrame);
-			if (ret != RK_SUCCESS) {
+			if (ret != RK_SUCCESS)
+			{
 				printf("RK_MPI_VENC_ReleaseStream fail %x\n", ret);
 			}
 			loopCount++;
-		} else {
+		}
+		else
+		{
 			printf("RK_MPI_VENC_GetStream timeout %x\n", ret);
 		}
 	}
@@ -143,21 +114,56 @@ static void *rkipc_get_venc_1(void *arg) {
 	return 0;
 }
 
-int motion_detecter(int chnId)
+static void *rkipc_get_venc_2(void *arg)
 {
-	int flag = 0;
+	int frame_cycle_time_ms = 1000 / 4;
+	long long before_time, cost_time;
+	while (g_video_run_ == 1)
+	{
+		before_time = get_curren_time_ms();
+		if (motion_detecter(0) != motion_detected)
+		{
+			pthread_rwlock_wrlock(&frame_rate_rwlock);
+			motion_detected = (motion_detected + 1) % 2;
+			video_frame_rate = (motion_detected == MOTION_DETECTED
+									? HIGH_FRAME_RATE
+									: LOW_FRAME_RATE);
+			pthread_rwlock_unlock(&frame_rate_rwlock);
+			// inform sqlite
+			if (frame_rate_setter(0, video_frame_rate))
+			{
+				printf("frame_rate_setter error\n");
+			}
+			else
+			{
+				printf("update video rate to %d\n",
+					   motion_detected == MOTION_DETECTED
+						   ? HIGH_FRAME_RATE
+						   : LOW_FRAME_RATE);
+			}
+		}
+		cost_time = get_curren_time_ms() - before_time;
+		if ((cost_time > 0) && (cost_time < frame_cycle_time_ms))
+			usleep((frame_cycle_time_ms - cost_time) * 1000);
+	}
+	
+	return NULL;
+}
+
+static int motion_detecter(int chnId)
+{
+	int flag = MOTION_UNDETECTED;
 	IVS_RESULT_INFO_S stResults;
 	memset(&stResults, 0, sizeof(IVS_RESULT_INFO_S));
-	RK_S32 s32Ret = RK_SUCCESS;
-	s32Ret = RK_MPI_IVS_GetResults(chnId, &stResults, 1000);
+	RK_S32 s32Ret = RK_MPI_IVS_GetResults(chnId, &stResults, 1000);
 	if (s32Ret == RK_SUCCESS)
 	{
 		if (stResults.s32ResultNum == 1)
 		{
-			printf("MD u32RectNum: %u\n", stResults.pstResults->stMdInfo.u32RectNum);
+			// printf("MD u32RectNum: %u\n", stResults.pstResults->stMdInfo.u32RectNum);
 			if (stResults.pstResults->stMdInfo.u32Square > MD_hight * MD_width * md_area_threshold_rate)
 			{
-				flag = 1;
+				flag = MOTION_DETECTED;
 				printf("MD: md_area is %d, md_area_threshold is %f\n",
 					   stResults.pstResults->stMdInfo.u32Square, md_area_threshold_rate);
 			}
@@ -172,7 +178,7 @@ int motion_detecter(int chnId)
 	}
 }
 
-int rkipc_aiq_init()
+static int rkipc_aiq_init()
 {
 	// init rkaiq
 	rk_aiq_working_mode_t hdr_mode = RK_AIQ_WORKING_MODE_NORMAL;
@@ -184,7 +190,7 @@ int rkipc_aiq_init()
 	return 0;
 }
 
-int rkipc_vi_dev_init()
+static int rkipc_vi_dev_init()
 {
 	int ret = 0;
 	VI_DEV_ATTR_S stDevAttr;
@@ -236,14 +242,15 @@ int rkipc_vi_dev_init()
 	return 0;
 }
 
-int rkipc_vi_dev_deinit()
+static int rkipc_vi_dev_deinit()
 {
 	RK_MPI_VI_DisableDev(pipe_id_);
+	printf("RK_MPI_VI_DisableDev success\n");
 
 	return 0;
 }
 
-int rkipc_pipe_0_init()
+static int rkipc_pipe_0_init()
 {
 	int ret;
 	int buffer_line = vi_video_hight / 4;
@@ -424,7 +431,8 @@ int rkipc_pipe_0_init()
 	return 0;
 }
 
-int rkipc_pipe_0_deinit() {
+static int rkipc_pipe_0_deinit()
+{
 	int ret;
 	// unbind
 	vi_chn[0].enModId = RK_ID_VI;
@@ -435,25 +443,26 @@ int rkipc_pipe_0_deinit() {
 	venc_chn[0].s32ChnId = 0;
 	ret = RK_MPI_SYS_UnBind(&vi_chn[0], &venc_chn[0]);
 	if (ret)
-		printf("Unbind VI and VENC error! ret=%#x\n", ret);
+		printf("Pipe 0: Unbind VI and VENC error! ret=%#x\n", ret);
 	else
-		printf("Unbind VI and VENC success\n");
+		printf("Pipe 0: Unbind VI and VENC success\n");
 	// VENC
 	ret = RK_MPI_VENC_StopRecvFrame(0);
 	ret |= RK_MPI_VENC_DestroyChn(0);
 	if (ret)
-		printf("ERROR: Destroy VENC error! ret=%#x\n", ret);
+		printf("Pipe 0:ERROR: Destroy VENC error! ret=%#x\n", ret);
 	else
-		printf("RK_MPI_VENC_DestroyChn success\n");
+		printf("Pipe 0:RK_MPI_VENC_DestroyChn success\n");
 	// VI
 	ret = RK_MPI_VI_DisableChn(pipe_id_, 0);
 	if (ret)
-		printf("ERROR: Destroy VI error! ret=%#x\n", ret);
-    pthread_join(rkipc_get_venc_0_thread, NULL);
+		printf("Pipe 0:ERROR: Destroy VI error! ret=%#x\n", ret);
+	pthread_join(rkipc_get_venc_0_thread, NULL);
 	return 0;
 }
 
-int rkipc_pipe_1_init() {
+static int rkipc_pipe_1_init()
+{
 	int ret;
 	int video_width = vi_video_width;
 	int video_height = vi_video_hight;
@@ -478,11 +487,12 @@ int rkipc_pipe_1_init() {
 	vi_chn_attr.u32Depth = 0;
 	vi_chn_attr.stFrameRate.s32DstFrameRate = 30;
 	vi_chn_attr.stFrameRate.s32SrcFrameRate = 30;
-	if (1)// vo
+	if (1) // vo
 		vi_chn_attr.u32Depth += 1;
 	ret = RK_MPI_VI_SetChnAttr(pipe_id_, 1, &vi_chn_attr);
 	ret |= RK_MPI_VI_EnableChn(pipe_id_, 1);
-	if (ret) {
+	if (ret)
+	{
 		printf("ERROR: create VI error! ret=%d\n", ret);
 		return ret;
 	}
@@ -507,7 +517,8 @@ int rkipc_pipe_1_init() {
 	venc_chn_attr.stVencAttr.u32StreamBufCnt = 4;
 	venc_chn_attr.stVencAttr.u32BufSize = video_width * video_height * 3 / 2;
 	ret = RK_MPI_VENC_CreateChn(1, &venc_chn_attr);
-	if (ret) {
+	if (ret)
+	{
 		printf("ERROR: create VENC error! ret=%#x\n", ret);
 		return -1;
 	}
@@ -570,13 +581,20 @@ int rkipc_pipe_1_init() {
 	memset(&stVencChnRefBufShare, 0, sizeof(VENC_CHN_REF_BUF_SHARE_S));
 	stVencChnRefBufShare.bEnable = RK_FALSE;
 	RK_MPI_VENC_SetChnRefBufShareAttr(1, &stVencChnRefBufShare);
-	if (rotation == 0) {
+	if (rotation == 0)
+	{
 		RK_MPI_VENC_SetChnRotation(1, ROTATION_0);
-	} else if (rotation == 90) {
+	}
+	else if (rotation == 90)
+	{
 		RK_MPI_VENC_SetChnRotation(1, ROTATION_90);
-	} else if (rotation == 180) {
+	}
+	else if (rotation == 180)
+	{
 		RK_MPI_VENC_SetChnRotation(1, ROTATION_180);
-	} else if (rotation == 270) {
+	}
+	else if (rotation == 270)
+	{
 		RK_MPI_VENC_SetChnRotation(1, ROTATION_270);
 	}
 
@@ -584,8 +602,8 @@ int rkipc_pipe_1_init() {
 	memset(&stRecvParam, 0, sizeof(VENC_RECV_PIC_PARAM_S));
 	stRecvParam.s32RecvPicNum = -1;
 	RK_MPI_VENC_StartRecvFrame(1, &stRecvParam);
-	//pthread_create(&rkipc_get_venc_1_thread, NULL, rkipc_get_venc_1, NULL);
-	// bind
+	 pthread_create(&rkipc_get_venc_1_thread, NULL, rkipc_get_venc_1, NULL);
+	//  bind
 	vi_chn[1].enModId = RK_ID_VI;
 	vi_chn[1].s32DevId = 0;
 	vi_chn[1].s32ChnId = 1;
@@ -600,7 +618,8 @@ int rkipc_pipe_1_init() {
 	return 0;
 }
 
-int rkipc_pipe_1_deinit() {
+static int rkipc_pipe_1_deinit()
+{
 	int ret;
 	// unbind
 	vi_chn[1].enModId = RK_ID_VI;
@@ -611,25 +630,26 @@ int rkipc_pipe_1_deinit() {
 	venc_chn[1].s32ChnId = 1;
 	ret = RK_MPI_SYS_UnBind(&vi_chn[1], &venc_chn[1]);
 	if (ret)
-		printf("Unbind VI and VENC error! ret=%#x\n", ret);
+		printf("Pipe 1:Unbind VI and VENC error! ret=%#x\n", ret);
 	else
-		printf("Unbind VI and VENC success\n");
+		printf("Pipe 1:Unbind VI and VENC success\n");
 	// VENC
 	ret = RK_MPI_VENC_StopRecvFrame(1);
 	ret |= RK_MPI_VENC_DestroyChn(1);
 	if (ret)
-		printf("ERROR: Destroy VENC error! ret=%#x\n", ret);
+		printf("Pipe 1:ERROR: Destroy VENC error! ret=%#x\n", ret);
 	else
-		printf("RK_MPI_VENC_DestroyChn success\n");
+		printf("Pipe 1:RK_MPI_VENC_DestroyChn success\n");
 	// VI
 	ret = RK_MPI_VI_DisableChn(pipe_id_, 1);
 	if (ret)
-		printf("ERROR: Destroy VI error! ret=%#x\n", ret);
-    pthread_join(rkipc_get_venc_1_thread, NULL);
+		printf("Pipe 1:ERROR: Destroy VI error! ret=%#x\n", ret);
+	pthread_join(rkipc_get_venc_1_thread, NULL);
+	printf("rk pipe_1 deinit success\n");
 	return 0;
 }
 
-int rkipc_pipe_2_init()
+static int rkipc_pipe_2_init()
 {
 	int ret;
 	int buf_cnt = 3;
@@ -673,27 +693,30 @@ int rkipc_pipe_2_init()
 		printf("Bind VI and IVS error! ret=%#x\n", ret);
 	else
 		printf("Bind VI and IVS success\n");
+	pthread_rwlock_init(&frame_rate_rwlock, NULL);
 	return 0;
 }
 
-int rkipc_pipe_2_deinit()
+static int rkipc_pipe_2_deinit()
 {
 	int ret;
 	// unbind
 	ret = RK_MPI_SYS_UnBind(&vi_chn[2], &ivs_chn);
 	if (ret)
-		printf("Unbind VI and IVS error! ret=%#x\n", ret);
+		printf("Pipe 2:Unbind VI and IVS error! ret=%#x\n", ret);
 	else
-		printf("Unbind VI and IVS success\n");
+		printf("Pipe 2:Unbind VI and IVS success\n");
 	rkipc_ivs_deinit();
 	ret = RK_MPI_VI_DisableChn(pipe_id_, VIDEO_PIPE_2);
 	if (ret)
-		printf("ERROR: Destroy VI error! ret=%#x\n", ret);
-    pthread_join(frame_rate_updater_thread, NULL);
+		printf("Pipe 2:ERROR: Destroy VI error! ret=%#x\n", ret);
+	pthread_join(frame_rate_updater_thread, NULL);
+	pthread_rwlock_destroy(&frame_rate_rwlock);
+	printf("Pipe 0:rk pipe_2 deinit success\n");
 	return 0;
 }
 
-int rkipc_ivs_init()
+static int rkipc_ivs_init()
 {
 	int ret;
 	int buf_cnt = 2;
@@ -745,12 +768,12 @@ int rkipc_ivs_init()
 		return -1;
 	}
 	if (md == RK_TRUE)
-		pthread_create(&frame_rate_updater_thread, NULL, frame_rate_updater, NULL);
+		pthread_create(&frame_rate_updater_thread, NULL, rkipc_get_venc_2, NULL);
 
 	return 0;
 }
 
-int rkipc_ivs_deinit()
+static int rkipc_ivs_deinit()
 {
 	int ret;
 	ret = RK_MPI_IVS_DestroyChn(0);
@@ -761,7 +784,7 @@ int rkipc_ivs_deinit()
 	return 0;
 }
 
-int frame_rate_setter(int chn, int frame_rate)
+static int frame_rate_setter(int chn, int frame_rate)
 {
 	int ret;
 	VENC_CHN_ATTR_S venc_chn_attr;
@@ -771,8 +794,6 @@ int frame_rate_setter(int chn, int frame_rate)
 		printf("ERROR: RK_MPI_VENC_GetChnAttr error! ret=%#x\n", ret);
 		return RK_FAILURE;
 	}
-	venc_chn_attr.stRcAttr.stH264Cbr.u32SrcFrameRateNum = 30;
-	venc_chn_attr.stRcAttr.stH264Cbr.u32SrcFrameRateDen = 1;
 	venc_chn_attr.stRcAttr.stH264Cbr.u32SrcFrameRateNum = frame_rate;
 	venc_chn_attr.stRcAttr.stH264Cbr.u32SrcFrameRateDen = 1;
 	ret = RK_MPI_VENC_SetChnAttr(chn, &venc_chn_attr);
@@ -786,23 +807,26 @@ int frame_rate_setter(int chn, int frame_rate)
 
 int rk_video_deinit()
 {
-    g_video_run_ = 0;
-    rkipc_pipe_0_deinit();
+	g_video_run_ = 0;
+	SAMPLE_COMM_ISP_Stop(0);
+	rkipc_pipe_0_deinit();
 	rkipc_pipe_1_deinit();
 	rkipc_pipe_2_deinit();
 	rkipc_vi_dev_deinit();
-    return 0;
+	return 0;
 }
 
 int rk_video_init()
 {
-    g_video_run_ = 1;
-    rkipc_vi_dev_init();
-    printf("rk vi init success\n");
+	g_video_run_ = 1;
+	rkipc_vi_dev_init();
+	printf("rk vi init success\n");
+	rkipc_aiq_init();
+	printf("rk aiq init success\n");
 	rkipc_pipe_0_init();
-    printf("rk pipe_0 init success\n");
+	printf("rk pipe_0 init success\n");
 	rkipc_pipe_1_init();
 	rkipc_pipe_2_init();
-    printf("rk video init success\n");
-    return 0;
+	printf("rk video init success\n");
+	return 0;
 }
