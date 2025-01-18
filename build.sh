@@ -30,6 +30,11 @@ fi
 #clean build folder
 if [ -d ${ROOT_PWD}/build ]; then
 	rm -rf ${ROOT_PWD}/build
+	echo -e "${GREEN}${ROOT_PWD}/build has been deleted!${NC}"
+fi
+if [ -d "${ROOT_PWD}/install" ]; then
+		rm -rf "${ROOT_PWD}/install"
+		echo -e "${GREEN}${ROOT_PWD}/install has been deleted!${NC}"
 fi
 mkdir ${ROOT_PWD}/build
 cd ${ROOT_PWD}/build

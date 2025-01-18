@@ -1,6 +1,7 @@
 #include "sqlite3.h"
 #include <stdio.h>
 #include "sqlite_comm.h"
+
 int testSQLite() {
     sqlite3 *db;
     char *errMsg = 0;

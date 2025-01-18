@@ -24,6 +24,7 @@ add_definitions(-DRV1106_1103)
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
+
 file(GLOB SRC_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cc")
 add_executable(${PROJECT_NAME} ${SRC_FILES})
 
@@ -46,6 +47,7 @@ target_link_libraries(${PROJECT_NAME}
                     pthread
                     rtsp
                     sqlite3
+                    ts
                     )
 
 target_include_directories(${PROJECT_NAME} PRIVATE                        
@@ -65,6 +67,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
                             ${CMAKE_CURRENT_SOURCE_DIR}/include/rkaiq/iq_parser
                             ${CMAKE_CURRENT_SOURCE_DIR}/include/rkaiq/iq_parser_v2
                             ${CMAKE_CURRENT_SOURCE_DIR}/include/rkaiq/smartIr
+                            ${CMAKE_CURRENT_SOURCE_DIR}/include/mpegts
                           )
                           
 
@@ -75,6 +78,11 @@ install(TARGETS ${PROJECT_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX})
 file(GLOB SQLITE_SO_FILES "${CMAKE_CURRENT_SOURCE_DIR}/lib/libsqlite3.so*")
 message(STATUS "SQLite SO files found: ${SQLITE_SO_FILES}")
 install(FILES ${SQLITE_SO_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
+
+# mpegts so files
+file(GLOB MPEGTS_SO_FILES "${CMAKE_CURRENT_SOURCE_DIR}/lib/libts.so")
+message(STATUS "MPEGTS SO files found: ${MPEGTS_SO_FILES}")
+install(FILES ${MPEGTS_SO_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
 
 
 
