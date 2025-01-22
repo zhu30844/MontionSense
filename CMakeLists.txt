@@ -13,6 +13,14 @@ set(CMAKE_CXX_COMPILER "${SDK_PATH}/tools/linux/toolchain/arm-rockchip830-linux-
 # Project Name
 project("MyMD")
 
+#set(CMAKE_PREFIX_PATH "${BUILDROOT_PATH}/usr")
+#include_directories("${BUILDROOT_PATH}/usr/include")
+#link_directories("${BUILDROOT_PATH}/usr/lib")
+#set(CMAKE_BUILD_RPATH "${BUILDROOT_PATH}/usr/lib")
+#set(CMAKE_INSTALL_RPATH "${BUILDROOT_PATH}/usr/lib")
+#set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
+
 # Set the library directory
 link_directories(${CMAKE_CURRENT_SOURCE_DIR}/lib)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/ 3rdparty.out)
@@ -25,7 +33,7 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
 
-file(GLOB SRC_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cc")
+file(GLOB SRC_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c")
 add_executable(${PROJECT_NAME} ${SRC_FILES})
 
 add_compile_options(-g -Wall
@@ -48,6 +56,12 @@ target_link_libraries(${PROJECT_NAME}
                     rtsp
                     sqlite3
                     ts
+                    dash
+                    flv
+                    hls
+                    mkv
+                    mov
+                    mpeg
                     )
 
 target_include_directories(${PROJECT_NAME} PRIVATE                        
@@ -55,6 +69,12 @@ target_include_directories(${PROJECT_NAME} PRIVATE
                             ${CMAKE_CURRENT_SOURCE_DIR}
                             ${CMAKE_CURRENT_SOURCE_DIR}/utils
                             ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/rknpu2/include
+                            ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/media-server/libdash/include
+                            ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/media-server/libflv/include
+                            ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/media-server/libhls/include
+                            ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/media-server/libmkv/include
+                            ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/media-server/libmov/include
+                            ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/media-server/libmpeg/include
                             ${CMAKE_CURRENT_SOURCE_DIR}/common 
                             ${CMAKE_CURRENT_SOURCE_DIR}/common/isp3.x   
                             ${CMAKE_CURRENT_SOURCE_DIR}/include
