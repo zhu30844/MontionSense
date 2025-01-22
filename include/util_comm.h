@@ -27,10 +27,14 @@ extern "C" {
 
 #define DATE_STRING_LENGTH 11
 
+#define PRINT_LINE() printf("==========================================\n")
+
 long long get_curren_time_ms();
 char *get_time_string();
 char *get_date_string();
 int64_t get_timestamp();
+int get_days_in_year();
+int check_endian();
 
 #ifdef __cplusplus
 #if __cplusplus
@@ -38,4 +42,5 @@ int64_t get_timestamp();
 #endif
 
 #endif /* End of #ifdef __cplusplus */
+
 #endif

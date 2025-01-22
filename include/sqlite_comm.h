@@ -9,7 +9,10 @@ extern "C" {
 
 #include "sqlite3.h"
 #include <stdio.h>
+
+
 int testSQLite();
+int video_files_db_init();
 
 
 #ifdef __cplusplus
