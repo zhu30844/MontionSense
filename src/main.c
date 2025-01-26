@@ -36,15 +36,12 @@ int main(int argc, char *argv[])
 	// init storage
 	storage_init();
 	//init mpi
-	RK_MPI_SYS_Init();
-	rk_video_init();
-	testSQLite();
+	RK_MPI_SYS_Init(); rk_video_init(); testSQLite();
 	while (g_main_run_ == 1)
 	{
 		sleep(1000);
 	}
-	rk_video_deinit();
-	storage_deinit();
-	RK_MPI_SYS_Exit();
+	sleep(2);
+	rk_video_deinit(); RK_MPI_SYS_Exit();storage_deinit();
 	return 0;
 }

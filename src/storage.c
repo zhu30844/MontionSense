@@ -1,58 +1,102 @@
 #include "storage_comm.h"
 
 FILE *fp_ts = NULL;
-int64_t timestamp = 0;
-int64_t timestamp_increaser = 33;
 const char *video_folder = "/mnt/sdcard/DCIM/";
 static char *date = NULL;
-static void *ts = NULL;
-static struct mpeg_ts_func_t h;
-static int pts = 0;
-static int dts = 0;
-static int stream_id = 0;
-static int16_t ts_file_counter = 1;
+static char dated_video_path[DATED_PATH_LENGTH] = {0};   // Example: "/mnt/sdcard/DCIM/2021-07-01/
+static char ts_file_path[TS_FILE_PATH_LENGTH] = {0};     // Example: "/mnt/sdcard/DCIM/2021-07-01/0000/00001.ts"
+static char m3u8_file_path[M3U8_FILE_PATH_LENGTH] = {0}; // Example: "/mnt/sdcard/DCIM/2021-07-01/0000/index.m3u8"
+hls_m3u8_t *m3u = NULL;
+hls_media_t *hls = NULL;
+static char m3u8_list_buffer[2 * 1024 * 1024] = {0}; // 2MB
+static pthread_t space_cleanup_tid;
+static pthread_mutex_t s_mkdir_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t s_write_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t s_free_space_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t s_free_space_cond = PTHREAD_COND_INITIALIZER;
+static pthread_mutex_t s_db_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-double frame_duration = 1.0 / 30.0;
-static char dated_video_path[DATED_PATH_LENGTH] = {'\0'}; // /mnt/sdcard/DCIM/2021-07-01
-static char ts_file_path[TS_FILE_PATH_LENGTH] = {'\0'};
-static pthread_mutex_t g_mkdir_mutex = PTHREAD_MUTEX_INITIALIZER;
 RK_BOOL SD_card_exist = RK_FALSE;
-static uint32_t disk_size = 0;
-static uint32_t free_size = 0;
-static uint64_t used_size = 0;
-static int ydy = 0;
+RK_BOOL need_free_disk = RK_FALSE;
 
-// assisant function for ts muxer alloc
-static void *ts_alloc(void *param, size_t bytes)
-{
-    static char s_buffer[188];
-    assert(bytes <= sizeof(s_buffer));
-    return s_buffer;
-}
+static int interrupt_times = 0;
+static RK_BOOL new_stream = RK_TRUE;
+static int ydy = 0; // date of the year
+static int g_storage_run_ = 1;
 
-// assisant function for ts muxer free
-static void ts_free(void *param, void *packet)
+static int hls_handler(void *m3u8, const void *data, size_t bytes, int64_t pts, int64_t dts, int64_t duration)
 {
-    if (fp_ts != NULL)
+    pthread_mutex_lock(&s_write_mutex);
+    // ts cache done, write to file
+    printf("write ts to file\n");
+    static int64_t s_dts = -1;
+    static int i = 0;
+    if (new_stream == RK_TRUE)
     {
-        fflush(fp_ts);
+        i = 0;
+        s_dts = -1;
+        new_stream = RK_FALSE;
     }
-    return;
-}
-// assisant function for ts muxer write
-static int ts_write(void *param, const void *packet, size_t bytes)
-{
-    return 1 == fwrite(packet, bytes, 1, (FILE *)param) ? 0 : ferror((FILE *)param);
-}
 
-// get the stream id
-static int ts_stream(void *ts, int codecid)
-{
-    return mpeg_ts_add_stream(ts, codecid, NULL, 0);
+    int discontinue = -1 != s_dts ? 0 : (dts > s_dts + HLS_DURATION / 2 ? 1 : 0);
+    s_dts = dts;
+    // get the ts file path
+    snprintf(ts_file_path, sizeof(ts_file_path) - 1, "%s%05d/%05d.ts", dated_video_path, interrupt_times, i++);
+    printf("ts file path: %s\n", ts_file_path);
+    // get the m3u8 file path
+    snprintf(m3u8_file_path, sizeof(m3u8_file_path) - 1, "%s%05d/index.m3u8", dated_video_path, interrupt_times);
+    // add ts file name to m3u8 list
+    hls_m3u8_add((hls_m3u8_t *)m3u8, ts_file_path, pts, duration, discontinue);
+    // get the m3u8 list
+    hls_m3u8_playlist((hls_m3u8_t *)m3u8, 1, m3u8_list_buffer, sizeof(m3u8_list_buffer));
+    // write the m3u8 file
+    FILE *fp_m3u8 = fopen(m3u8_file_path, "wb");
+    if (fp_m3u8)
+    {
+        fwrite(m3u8_list_buffer, 1, strlen(m3u8_list_buffer), fp_m3u8);
+        fclose(fp_m3u8);
+    }
+    // write the ts file
+    FILE *fp_ts = fopen(ts_file_path, "wb");
+    if (fp_ts)
+    {
+        fwrite(data, 1, bytes, fp_ts);
+        fclose(fp_ts);
+    }
+    uint32_t free_size = 0;
+    get_disk_size("/mnt/sdcard", NULL, &free_size, NULL);
+    if (free_size < 2048)
+    {
+        free_up_disk_notify();
+    }
+    pthread_mutex_unlock(&s_write_mutex);
+    return 0;
 }
 
 int storage_init()
 {
+    pthread_mutex_t mutexes[] = {s_free_space_mutex, s_db_mutex, s_mkdir_mutex, s_write_mutex};
+    pthread_cond_t conds[] = {s_free_space_cond};
+    for (int i = 0; i < sizeof(mutexes) / sizeof(mutexes[0]); ++i)
+    {
+        if (pthread_mutex_init(&mutexes[i], NULL) != 0)
+        {
+            perror("pthread_mutex_init");
+            return -1;
+        }
+    }
+    for (int i = 0; i < sizeof(conds) / sizeof(conds[0]); ++i)
+    {
+        if (pthread_cond_init(&conds[i], NULL) != 0)
+        {
+            perror("pthread_cond_init");
+            return -1;
+        }
+    }
+
+    uint32_t disk_size = 0;
+    uint32_t free_size = 0;
+    uint64_t used_size = 0;
     PRINT_LINE();
     DIR *d = opendir("/mnt/sdcard");
     if (d == NULL)
@@ -70,32 +114,78 @@ int storage_init()
     get_disk_size("/mnt/sdcard", &disk_size, &free_size, &used_size);
     printf("Disk size is \t%.3f GB\nFree size is \t%.3f GB\nUsed disk is \t%llu MB\n", disk_size / 1024.0, free_size / 1024.0, used_size);
     PRINT_LINE();
-
-    ydy = get_days_in_year();
-    if (folder_create(video_folder) == 1)
+    printf("create disk space cleanup thread\n");
+    if (pthread_create(&space_cleanup_tid, NULL, space_cleanup_thread, NULL) != 0)
     {
-        snprintf(dated_video_path, sizeof(dated_video_path), "%s%s", video_folder, get_date_string());
-        if (folder_create(dated_video_path) == 1)
+        perror("pthread_create");
+        return -1;
+    }
+    // update date info
+    date = get_date_string();
+    snprintf(dated_video_path, sizeof(dated_video_path), "%s%s/", video_folder, date);
+    ydy = get_days_in_year();
+    if (folder_create(video_folder) == 1) // video folder DCIM exists
+    {
+        if (folder_create(dated_video_path) == 1 && interrupt_times >= 0)
         {
-            // recover the recording
-            printf("Folder %s exists, try recovering recording...\n", video_folder);
-            // recover tsfile counter
-            // recover frame number
-            // check m3u8 file and recover the last ts file
+            // uppdate the interrupt times from db
+            printf("Folder %s exists, I WAS INTERRUPTED BY %d TIMES! :(\n", dated_video_path, ++interrupt_times);
+            // update the interrupt times to db
+        }
+        else
+        {
+            // new date
+            printf("Folder %s created.\n", dated_video_path);
         }
     }
-
-    // storage init done
-    ts_muxer_config(); // fist time configure the ts muxer
-    // check previous records via database
-    printf("storage init success\n");
+    else
+    {
+        // first time to run
+        printf("Folder %s created. Nice to meet you~ \n", video_folder);
+        folder_create(dated_video_path);
+    }
+    snprintf(ts_file_path, sizeof(ts_file_path) - 1, "%s%05d/", dated_video_path, interrupt_times);
+    folder_create(ts_file_path);
+    PRINT_LINE();
+    m3u = hls_m3u8_create(0, 3);
+    hls = hls_media_create(HLS_DURATION * 1000, hls_handler, m3u);
+    if (hls == NULL || m3u == NULL)
+    {
+        printf("storage init failed!\n");
+        return -1;
+    }
+    printf("storage init success!\n");
     PRINT_LINE();
     return 0;
 }
 
 int storage_deinit()
 {
-    printf("storage deinit success\n");
+    printf("storage deinit...\n");
+    g_storage_run_ = 0;
+    if (hls)
+        hls_media_destroy(hls);
+    if (m3u)
+        hls_m3u8_destroy(m3u);
+    pthread_mutex_lock(&s_free_space_mutex);
+    pthread_cond_signal(&s_free_space_cond);
+    pthread_mutex_unlock(&s_free_space_mutex);
+
+    printf("join the space_cleanup_tid thread..\n");
+    pthread_join(space_cleanup_tid, NULL);
+
+    pthread_mutex_t mutexes[] = {s_free_space_mutex, s_db_mutex, s_mkdir_mutex, s_write_mutex};
+    pthread_cond_t conds[] = {s_free_space_cond};
+    for (int i = 0; i < sizeof(mutexes) / sizeof(mutexes[0]); ++i)
+    {
+        pthread_mutex_destroy(&mutexes[i]);
+    }
+    for (int i = 0; i < sizeof(conds) / sizeof(conds[0]); ++i)
+    {
+        pthread_cond_destroy(&conds[i]);
+    }
+
+    printf("storage deinit success.\n");
     return 0;
 }
 
@@ -103,45 +193,39 @@ int write_ts_2_SD(RK_U8 *data, RK_U32 len, RK_BOOL is_key_frame)
 {
     if (SD_card_exist == RK_FALSE)
         return -1; // no SD card, do nothing
-    static int frame_number_d = 0;
-    static int frame_number_ts = 0;
     if (ydy != get_days_in_year())
     {
+        hls_media_input(hls, PSI_STREAM_H264, NULL, 0, 0, 0, 0);
         // new day
-        // reset the frame number
-        frame_number_d = 0;
-        frame_number_ts = 0;
+        printf("New day, forget the interrupt times.\n");
         ydy = get_days_in_year();
         date = get_date_string();
-        snprintf(dated_video_path, sizeof(dated_video_path), "%s%s", video_folder, date);
+        snprintf(dated_video_path, sizeof(dated_video_path), "%s%s/", video_folder, date);
         folder_create(dated_video_path);
-        ts_file_counter = 1;
+        // new day, forget the interrupt times
+        interrupt_times = 0;
+        snprintf(ts_file_path, sizeof(ts_file_path) - 1, "%s%05d/", dated_video_path, interrupt_times);
+        folder_create(ts_file_path);
+        // update the interrupt times to db
+        new_stream = RK_TRUE;
+        // destroy the old hls and m3u8
+        hls_media_destroy(hls);
+        hls_m3u8_destroy(m3u);
+        printf("destroy the old hls and m3u8 done\n");
+        // create a new hls and m3u8
+        if (config_hls() == -1)
+            return -1;
     }
-    frame_number_d++;
-    frame_number_ts++;
-    printf("frame_number is %d\n", frame_number_d);
-    if (frame_number_ts > 540 || (frame_number_ts >= 500 && is_key_frame == RK_TRUE))
-    {
-        if (is_key_frame == RK_TRUE)
-            printf("Find a key frame and the duration is enough, clipt!\n");
-        else
-            printf("The duration is enough, foced clipt!\n");
-        // write M3U8 file
-        // reset the frame number of per ts package
-        frame_number_ts = 0;
-        mpeg_ts_destroy(ts);
-        ts_file_counter++;
-        ts_muxer_config();
-    }
-    pts = frame_number_d * frame_duration * 90000;
+    static int64_t pts = 10086;
+    static int64_t dts = 0;
+    pts += 33;
     dts = pts;
-    uint8_t nalu_type = data[0] & 0x1F;
-    mpeg_ts_write(ts, stream_id, nalu_type == 0x09 ? 0x8000 : 0x0001, pts, dts, data, len);
+    hls_media_input(hls, PSI_STREAM_H264, data, len, pts, dts, (is_key_frame == RK_TRUE) ? HLS_FLAGS_KEYFRAME : 0);
 }
 
 int folder_create(const char *folder)
 {
-    pthread_mutex_lock(&g_mkdir_mutex);
+    pthread_mutex_lock(&s_mkdir_mutex);
     int ret = 0;
     DIR *d = opendir(folder);
     if (d == NULL)
@@ -163,7 +247,7 @@ int folder_create(const char *folder)
         closedir(d);
         ret = 1;
     }
-    pthread_mutex_unlock(&g_mkdir_mutex);
+    pthread_mutex_unlock(&s_mkdir_mutex);
     return ret;
 }
 
@@ -178,29 +262,62 @@ static int get_disk_size(char *path, uint32_t *total_size, uint32_t *free_size, 
     uint64_t used_disk = (uint64_t)(diskInfo.f_blocks - diskInfo.f_bfree) * diskInfo.f_bsize;
     uint64_t total_disk = (uint64_t)diskInfo.f_blocks * diskInfo.f_bsize;
     uint64_t available_disk = (uint64_t)diskInfo.f_bavail * diskInfo.f_bsize;
-    *total_size = (uint32_t)((total_disk) >> 20);
-    *free_size = (uint32_t)((available_disk) >> 20);
-    *used_size = ((used_disk) >> 20);
+    if (total_size != NULL)
+        *total_size = (uint32_t)((total_disk) >> 20);
+    if (free_size != NULL)
+        *free_size = (uint32_t)((available_disk) >> 20);
+    if (used_size != NULL)
+        *used_size = ((used_disk) >> 20);
     return 0;
 }
 
-// this function will configure the ts muxser USING THE TIME when IT IS CALLED
-int ts_muxer_config()
+int config_hls()
 {
-    date = get_date_string();
-    snprintf(dated_video_path, sizeof(dated_video_path), "%s%s", video_folder, date);
-    snprintf(ts_file_path, sizeof(ts_file_path), "%s/%05d.ts", dated_video_path, ts_file_counter);
-    fp_ts = fopen(ts_file_path, "wb");
-    h.alloc = ts_alloc;
-    h.write = ts_write;
-    h.free = ts_free;
-    ts = mpeg_ts_create(&h, fp_ts);
-    stream_id = mpeg_ts_add_stream(ts, PSI_STREAM_H264, NULL, 0);
+    new_stream = RK_TRUE;
+    m3u = hls_m3u8_create(0, 3);
+    printf("create m3u8 done\n");
+    hls = hls_media_create(HLS_DURATION * 1000, hls_handler, m3u);
+    printf("create hls done\n");
+    if (hls == NULL || m3u == NULL)
+    {
+        printf("config_hls failed!\n");
+        return -1;
+    }
+    else
+    {
+        printf("config_hls success!\n");
+        return 0;
+    }
 }
 
-int record_recovery()
+void free_up_disk_notify()
 {
-    // read file Last.index to get the file name 
-    // append the file name and duration to the m3u8 file
-    return 0;
+    pthread_mutex_lock(&s_free_space_mutex);
+    need_free_disk = RK_TRUE;
+    pthread_cond_signal(&s_free_space_cond);
+    pthread_mutex_unlock(&s_free_space_mutex);
+}
+
+void *space_cleanup_thread(void *arg)
+{
+    while (g_storage_run_ == 1 && SD_card_exist == RK_TRUE) 
+    {
+        pthread_mutex_lock(&s_free_space_mutex);
+        while (need_free_disk == RK_FALSE && g_storage_run_ == 1)
+        {
+            pthread_cond_wait(&s_free_space_cond, &s_free_space_mutex);
+        }
+        pthread_mutex_unlock(&s_free_space_mutex);
+        if (g_storage_run_ != 1)
+            break;    
+        //pthread_mutex_unlock(&s_free_space_mutex);
+        printf("Free disk space...\n");
+        printf("inform db");
+
+        printf("update flag");
+        pthread_mutex_lock(&s_free_space_mutex);
+        need_free_disk = RK_FALSE;
+        pthread_mutex_unlock(&s_free_space_mutex);
+    }
+    return NULL;
 }

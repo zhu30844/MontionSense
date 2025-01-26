@@ -23,6 +23,13 @@ RK_U64 TEST_COMM_GetNowUs()
 	return (RK_U64)time.tv_sec * 1000000 + (RK_U64)time.tv_nsec / 1000; /* microseconds */
 }
 
+time_t get_time_stamp()
+{
+	time_t current_time;
+	time(&current_time);
+	return current_time;
+}
+
 char *get_time_string()
 {
 	struct timeval tv;
