@@ -45,7 +45,7 @@ extern "C" {
 
 int storage_init();
 int storage_deinit();
-int write_ts_2_SD(RK_U8 * data, RK_U32 len, RK_BOOL is_key_frame);
+int write_frame_2_SD(RK_U8 * data, RK_U32 len, RK_BOOL is_key_frame);
 static int hls_handler(void* m3u8, const void* data, size_t bytes, int64_t pts, int64_t dts, int64_t duration);
 int folder_create(const char *folder);
 static int get_disk_size(char *path, uint32_t *total_size, 
