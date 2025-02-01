@@ -15,7 +15,6 @@
 #include "video.h"
 #include "sqlite_comm.h"
 #include "util_comm.h"
-#include "ts.h"
 
 static int g_main_run_ = 1;
 

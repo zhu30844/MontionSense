@@ -189,7 +189,7 @@ int storage_deinit()
     return 0;
 }
 
-int write_ts_2_SD(RK_U8 *data, RK_U32 len, RK_BOOL is_key_frame)
+int write_frame_2_SD(RK_U8 *data, RK_U32 len, RK_BOOL is_key_frame)
 {
     if (SD_card_exist == RK_FALSE)
         return -1; // no SD card, do nothing

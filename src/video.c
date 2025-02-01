@@ -45,10 +45,10 @@ static void *rkipc_get_venc_0(void *arg)
 			if ((stFrame.pstPack->DataType.enH264EType == H264E_NALU_IDRSLICE) ||
 			    (stFrame.pstPack->DataType.enH264EType == H264E_NALU_ISLICE)) {
 				//printf("write key frame\n");
-				write_ts_2_SD((RK_U8 *)data, stFrame.pstPack->u32Len, RK_TRUE);
+				write_frame_2_SD((RK_U8 *)data, stFrame.pstPack->u32Len, RK_TRUE);
 				//printf("key frame sent\n");
 			} else {
-				write_ts_2_SD((RK_U8 *)data, stFrame.pstPack->u32Len, RK_FALSE);	
+				write_frame_2_SD((RK_U8 *)data, stFrame.pstPack->u32Len, RK_FALSE);	
 				//printf("none-key frame sent\n");						 
 			}
 			ret = RK_MPI_VENC_ReleaseStream(0, &stFrame);
