@@ -19,9 +19,10 @@ extern "C" {
 #include <unistd.h>
 #include <pthread.h>
 #include "sample_comm.h"
-#include "sqlite_comm.h"
+#include "db_comm.h"
 #include "storage_comm.h"
 #include "util_comm.h"
+#include "web_server.h"
 
 
 #define MOTION_DETECTED 1

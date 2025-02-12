@@ -35,6 +35,7 @@ char *get_date_string();
 int64_t get_timestamp();
 int get_days_in_year();
 int check_endian();
+void get_month_date_ranges(char *month_start, char *next_month_start, char *today) ;
 
 #ifdef __cplusplus
 #if __cplusplus

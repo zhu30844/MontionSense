@@ -13,8 +13,9 @@
 #include "sample_comm.h"
 #include "pthread.h"
 #include "video.h"
-#include "sqlite_comm.h"
-#include "util_comm.h"
+//#include "sqlite_comm.h"
+//#include "util_comm.h"
+
 
 static int g_main_run_ = 1;
 
@@ -34,13 +35,16 @@ int main(int argc, char *argv[])
 	printf("System date: %s\n", get_date_string());
 	// init storage
 	storage_init();
+	// init streamer
+	web_server_init();
 	//init mpi
-	RK_MPI_SYS_Init(); rk_video_init(); testSQLite();
+	RK_MPI_SYS_Init(); rk_video_init();
 	while (g_main_run_ == 1)
 	{
 		sleep(1000);
 	}
 	sleep(2);
 	rk_video_deinit(); RK_MPI_SYS_Exit();storage_deinit();
+	web_server_deinit();
 	return 0;
 }
