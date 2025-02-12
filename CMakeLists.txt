@@ -32,8 +32,13 @@ add_definitions(-DRV1106_1103)
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
+# Include Mongoose headers
+#include_directories(${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/mongoose)
 
-file(GLOB SRC_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c")
+# Add source files
+file(GLOB SRC_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c" 
+"${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/mongoose/mongoose.c"
+"${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/cJSON/cJSON.c")
 add_executable(${PROJECT_NAME} ${SRC_FILES})
 
 add_compile_options(-g -Wall
@@ -53,14 +58,9 @@ target_link_libraries(${PROJECT_NAME}
                     rockchip_mpp
                     rkaiq
                     pthread
-                    rtsp
+#                    rtsp
                     sqlite3
-                    ts
-                    dash
-                    flv
                     hls
-                    mkv
-                    mov
                     mpeg
                     )
 
@@ -75,6 +75,8 @@ target_include_directories(${PROJECT_NAME} PRIVATE
                             ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/media-server/libmkv/include
                             ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/media-server/libmov/include
                             ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/media-server/libmpeg/include
+                            ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/mongoose
+                            ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/cJSON
                             ${CMAKE_CURRENT_SOURCE_DIR}/common 
                             ${CMAKE_CURRENT_SOURCE_DIR}/common/isp3.x   
                             ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -87,7 +89,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE
                             ${CMAKE_CURRENT_SOURCE_DIR}/include/rkaiq/iq_parser
                             ${CMAKE_CURRENT_SOURCE_DIR}/include/rkaiq/iq_parser_v2
                             ${CMAKE_CURRENT_SOURCE_DIR}/include/rkaiq/smartIr
-                            ${CMAKE_CURRENT_SOURCE_DIR}/include/mpegts
                           )
                           
 

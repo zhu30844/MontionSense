@@ -83,3 +83,20 @@ int check_endian()
 	// if return 0, big endian
 	return (c.b == 1);
 }
+
+void get_month_date_ranges(char *month_start, char *next_month_start, char *today) 
+{
+    time_t now = time(NULL);
+    struct tm *tm_now = localtime(&now);
+
+    strftime(today, 11, "%Y-%m-%d", tm_now);
+
+    tm_now->tm_mday = 1;
+    mktime(tm_now);
+    strftime(month_start, 11, "%Y-%m-%d", tm_now);
+
+    tm_now->tm_mon += 1;
+    tm_now->tm_mday = 1;
+    mktime(tm_now);
+    strftime(next_month_start, 11, "%Y-%m-%d", tm_now);
+}

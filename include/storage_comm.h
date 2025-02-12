@@ -24,14 +24,10 @@
 #include "hls-media.h"
 #include "hls-param.h"
 
-#include "flv-proto.h"
-#include "flv-reader.h"
-#include "flv-demuxer.h"
-
 #include "util_comm.h"
 #include "rk_type.h"
-//#include "ts.h"
 #include "mpeg-ts.h"
+#include "db_comm.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -42,10 +38,15 @@ extern "C" {
 #define TS_FILE_PATH_LENGTH 46
 #define M3U8_FILE_PATH_LENGTH 48
 
+typedef enum {
+    FOLDER_CREATE_SUCCESS  = 0,
+    FOLDER_CREATE_EXIST    = 1,
+    FOLDER_CREATE_FAIL     = -1,
+} FOLDER_CREATE_STATUS;
 
 int storage_init();
 int storage_deinit();
-int write_frame_2_SD(RK_U8 * data, RK_U32 len, RK_BOOL is_key_frame);
+int write_frame_2_SD(RK_U8 * data, RK_U32 len, RK_BOOL is_key_frame, int frame_cycle_time_ms);
 static int hls_handler(void* m3u8, const void* data, size_t bytes, int64_t pts, int64_t dts, int64_t duration);
 int folder_create(const char *folder);
 static int get_disk_size(char *path, uint32_t *total_size, 
@@ -53,6 +54,9 @@ static int get_disk_size(char *path, uint32_t *total_size,
 int config_hls();
 void *space_cleanup_thread(void *arg);
 void free_up_disk_notify();
+int switch_folder();
+int count_subdirectories(const char *dir_path);
+int new_day(int64_t *p_pts, int64_t *p_dts);
 
 
 

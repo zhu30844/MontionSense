@@ -47,6 +47,7 @@ if [ $? -eq 0 ]; then
 	#adb shell ./oem/usr/bin/RkLunch-stop.sh
 	#adb shell rm -rf /mnt/sdcard/*
 	adb push ${ROOT_PWD}/install/MyMD_demo /mnt/sdcard/
+	adb push ${ROOT_PWD}/www /mnt/sdcard/MyMD_demo/
 	adb shell chmod +x /mnt/sdcard/MyMD_demo/MyMD
 	echo "executing the program on the RV1106 board"
 	#adb shell ./mnt/sdcard/MyMD_demo/MyMD
