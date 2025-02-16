@@ -6,6 +6,8 @@
 1. First version, "Bobtail Lizard".
 
 # MotionSense Demo
+![Home page](images/homepage.png)
+![Play back](images/playback.png)
 
 **MotionSense** is a simple motion detection and video streaming solution built on the Luckfox Pico RV1106 platform. It dynamically adjusts the video frame rate, capturing at 1 fps under normal conditions and ramping up to 20 fps when motion is detected, based on customizable thresholds. The system supports both recording and live streaming functionalities. The project also integrates with a lightweight web server(Mongoose), managing video artifacts through an on-board SQLite database to store metadata, and log events such as motion detection, reboots, and power recoveries.
 
