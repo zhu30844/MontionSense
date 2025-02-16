@@ -6,8 +6,6 @@
 1. First version, "Bobtail Lizard".
 
 # MotionSense Demo
-![Home page](images/homepage.png)
-![Play back](images/playback.png)
 
 ![Home page](images/homepage.png)
 ![Play back](images/playback.png)
