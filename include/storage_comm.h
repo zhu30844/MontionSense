@@ -1,3 +1,35 @@
+/*****************************************************************************
+* | File        :   storage_comm.h
+* | Author      :   ZIXUAN ZHU
+* | Function    :   Storage operations
+* | Info        :
+*----------------
+* |	This version:   V1.0
+* | Date        :   2025-02-16
+* | Info        :   Basic version
+*
+# The MIT License (MIT)
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to  whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS OR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+#
+******************************************************************************/
+
 #ifndef __STORAGE_COMM_H__
 #define __STORAGE_COMM_H__
 
@@ -30,38 +62,32 @@
 #include "db_comm.h"
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
+#define DATE_PATH_LENGTH 30      // Example: "/mnt/sdcard/DCIM/2021-07-01/"
+#define TS_FILE_PATH_LENGTH 46    // Example: "/mnt/sdcard/DCIM/2021-07-01/0000/00001.ts"
+#define M3U8_FILE_PATH_LENGTH 48  // Example: "/mnt/sdcard/DCIM/2021-07-01/0000/index.m3u8"
+#define CLEANUP_INTERVAL 20       // clean up interval, number of ts files
+#define DISK_SPACE_THRESHOLD 2048 // disk space threshold, in MB
 
-#define DATED_PATH_LENGTH 30
-#define TS_FILE_PATH_LENGTH 46
-#define M3U8_FILE_PATH_LENGTH 48
+    typedef enum
+    {
+        FOLDER_CREATE_SUCCESS = 0,
+        FOLDER_CREATE_EXIST = 1,
+        FOLDER_CREATE_FAIL = -1,
+    } FOLDER_CREATE_STATUS;
 
-typedef enum {
-    FOLDER_CREATE_SUCCESS  = 0,
-    FOLDER_CREATE_EXIST    = 1,
-    FOLDER_CREATE_FAIL     = -1,
-} FOLDER_CREATE_STATUS;
-
-int storage_init();
-int storage_deinit();
-int write_frame_2_SD(RK_U8 * data, RK_U32 len, RK_BOOL is_key_frame, int frame_cycle_time_ms);
-static int hls_handler(void* m3u8, const void* data, size_t bytes, int64_t pts, int64_t dts, int64_t duration);
-int folder_create(const char *folder);
-static int get_disk_size(char *path, uint32_t *total_size, 
-                        uint32_t *free_size, uint64_t *used_size);
-int config_hls();
-void *space_cleanup_thread(void *arg);
-void free_up_disk_notify();
-int switch_folder();
-int count_subdirectories(const char *dir_path);
-int new_day(int64_t *p_pts, int64_t *p_dts);
-
-
-
-
-
+    int storage_init();
+    int storage_deinit();
+    int write_frame_2_SD(RK_U8 *data, RK_U32 len, RK_BOOL is_key_frame, int frame_cycle_time_ms);
+    int folder_create(const char *folder);
+    int config_hls();
+    void *space_cleanup_thread(void *arg);
+    int switch_folder();
+    int count_subdirectories(const char *dir_path);
+    int new_day(int64_t *p_pts, int64_t *p_dts);
 
 #ifdef __cplusplus
 #if __cplusplus
