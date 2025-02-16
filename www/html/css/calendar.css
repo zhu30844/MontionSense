@@ -1,0 +1,62 @@
+/* Calendar CSS*/
+#calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background-color: #ddd;
+    padding: 10px;
+}
+
+.header-row {
+    grid-column: span 7;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 10px;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+
+.month-year {
+    text-align: center;
+    flex-grow: 1;
+}
+
+.day {
+    background-color: #fff;
+    padding: 10px;
+    text-align: center;
+    transition: transform 0.2s;
+}
+
+.day:hover {
+    background-color: #edf7ed;
+    transform: scale(1.05);
+}
+.day:active {
+    background-color: #c5ecc1;
+    transform: scale(0.95);
+}
+
+.day.header {
+    background-color: #4CAF50;
+    color: white;
+    font-weight: bold;
+}
+
+.day.header:hover,
+.day.header:active {
+    background-color: #4CAF50;
+    transform: none;
+    cursor: default;
+}
+

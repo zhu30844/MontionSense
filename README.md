@@ -1,32 +1,37 @@
-# Luckfox Pico MD (Motion Detection) example
-
-+ This example is based on RKMPI_IVS 
-+ This example uses RKMPI_IVS for Motion Detection.
-+ Example code for video capture and streaming specifically developed for Luckfox Pico series development boards.
+# Luckfox Pico MD (Motion Detection) MotionSense
 
 
 ## Project Update Log
-+ ver 0.1.2
-1. MD with multi VI chns
++ ver 0.0.1
+1. First version, "Bobtail Lizard".
 
-+ ver 0.1.1
-1. MD with multithreading  
+# MotionSense Demo
+![Home page](images/homepage.png)
+![Play back](images/playback.png)
 
-+ Ver 0.1
-1. a demo of calling RKMPI_IVS lib
+![Home page](images/homepage.png)
+![Play back](images/playback.png)
+
+**MotionSense** is a simple motion detection and video streaming solution built on the Luckfox Pico RV1106 platform. It dynamically adjusts the video frame rate, capturing at 1 fps under normal conditions and ramping up to 20 fps when motion is detected, based on customizable thresholds. The system supports both recording and live streaming functionalities. The project also integrates with a lightweight web server(Mongoose), managing video artifacts through an on-board SQLite database to store metadata, and log events such as motion detection, reboots, and power recoveries.
+
+## Key Features
+
++ **Motion Detection:** Uses IVS (Intelligent Video Surveillance) modules to detect motion.  
++ **Video Capture & Encoding:** Captures frames from camera sensors, encodes them using H.264, and store files in HLS format.  
++ **Storage Management:** Manages video storage on SD cards, by organizing files into clearly structured folders based on date and log event times, and space cleanup routines.  
++ **Web Server & Database:** Streams video via HTTP and logs motion events in SQLite databases for easy retrieval.  
+
+> For development and usage details, please refer to the source code in the `src` folder and documents in the `docs` folder.
 
 
-## Implementation Results
+## Future Plants
++ Optimize web server code, or switch to a different webserver (e.g. Goahead, uhttpd).
++ Optimize the heatmap stytle, the web server front end.
++ Optimize the file writing, may use Asynchronous IO in future.
++ Add OSD, add timestamp watermarks to the top left corner of the video.
++ Finish the player-bar marking feature, to help user nevigate motion spots by video progress bar.
 
-show the result of motion detection.
-
-## System Framework 
-
-TBD
-
-## Video Framework
-VI 0 => bind VENC 0 and osd draw time => muxer 1080*1920
-
-VI 1 => bind VENC 1 => rtsp 1080*1920
-
-VI 2 => bind IVS for OD MD 1080*1920
+## Known Issues
++ Mongoose will pop out socker error when autofreshing video streamer page or caching .ts files.
++ Failed to achieve the target frame rate, such as 30fps.
++ PTS (Presentation Time Stamp) and DTS (Decoding Time Stamp) are not accurate.
