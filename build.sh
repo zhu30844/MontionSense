@@ -45,11 +45,12 @@ if [ $? -eq 0 ]; then
 	echo "Pushing the install folder to the RV1106 board" 
 	#copy the install folder to the RV1106 board
 	#adb shell ./oem/usr/bin/RkLunch-stop.sh
-	adb shell rm -rf /mnt/sdcard/MyMD_demo
-	adb push ${ROOT_PWD}/install/MyMD_demo /mnt/sdcard/
-	adb shell chmod +x /mnt/sdcard/MyMD_demo/MyMD
-	echo "executing the program on the RV1106 board"
-	adb shell ./mnt/sdcard/MyMD_demo/MyMD
+	#adb shell rm -rf /mnt/sdcard/*
+	adb push ${ROOT_PWD}/install/MotionSense /mnt/sdcard/
+	adb push ${ROOT_PWD}/www /mnt/sdcard/MotionSense/
+	adb shell chmod +x /mnt/sdcard/MotionSense/MotionSense
+	#echo "executing the program on the RV1106 board"
+	#adb shell ./mnt/sdcard/MotionSense/MotionSense
 else 
 	echo -e "${RED}Make failed to execute${NC}"
 fi

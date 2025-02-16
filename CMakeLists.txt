@@ -10,9 +10,20 @@ set(CMAKE_C_COMPILER "${SDK_PATH}/tools/linux/toolchain/arm-rockchip830-linux-uc
 set(CMAKE_CXX_COMPILER "${SDK_PATH}/tools/linux/toolchain/arm-rockchip830-linux-uclibcgnueabihf/bin/arm-rockchip830-linux-uclibcgnueabihf-g++"
 )
 
-# Project Name
-project("MyMD")
+# Display the compiler information
+message(STATUS "C Compiler: ${CMAKE_C_COMPILER}")
+message(STATUS "CXX Compiler: ${CMAKE_CXX_COMPILER}")
 
+
+# Project Name
+project("MotionSense")
+
+add_compile_options(-g -Wall
+                    -DISP_HW_V30 -DRKPLATFORM=ON -DARCH64=OFF
+                    -DUAPI2  -DMG_ENABLE_DIRLIST=0
+                    -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 
+                    )
+# -DROCKIVA 
 #set(CMAKE_PREFIX_PATH "${BUILDROOT_PATH}/usr")
 #include_directories("${BUILDROOT_PATH}/usr/include")
 #link_directories("${BUILDROOT_PATH}/usr/lib")
@@ -32,15 +43,10 @@ add_definitions(-DRV1106_1103)
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
-
-file(GLOB SRC_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c")
+# Add source files
+file(GLOB SRC_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c" 
+"${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/mongoose/mongoose.c")
 add_executable(${PROJECT_NAME} ${SRC_FILES})
-
-add_compile_options(-g -Wall
-                    -DISP_HW_V30 -DRKPLATFORM=ON -DARCH64=OFF
-                    -DROCKIVA -DUAPI2
-                    -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 
-                    )
 
 set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath-link,${CMAKE_CURRENT_SOURCE_DIR}/lib:/usr/lib")
 
@@ -53,14 +59,8 @@ target_link_libraries(${PROJECT_NAME}
                     rockchip_mpp
                     rkaiq
                     pthread
-                    rtsp
                     sqlite3
-                    ts
-                    dash
-                    flv
                     hls
-                    mkv
-                    mov
                     mpeg
                     )
 
@@ -75,6 +75,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
                             ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/media-server/libmkv/include
                             ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/media-server/libmov/include
                             ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/media-server/libmpeg/include
+                            ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/mongoose
                             ${CMAKE_CURRENT_SOURCE_DIR}/common 
                             ${CMAKE_CURRENT_SOURCE_DIR}/common/isp3.x   
                             ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -87,22 +88,14 @@ target_include_directories(${PROJECT_NAME} PRIVATE
                             ${CMAKE_CURRENT_SOURCE_DIR}/include/rkaiq/iq_parser
                             ${CMAKE_CURRENT_SOURCE_DIR}/include/rkaiq/iq_parser_v2
                             ${CMAKE_CURRENT_SOURCE_DIR}/include/rkaiq/smartIr
-                            ${CMAKE_CURRENT_SOURCE_DIR}/include/mpegts
                           )
                           
 
-set(CMAKE_INSTALL_PREFIX "${CMAKE_CURRENT_SOURCE_DIR}/install/${PROJECT_NAME}_demo")
+set(CMAKE_INSTALL_PREFIX "${CMAKE_CURRENT_SOURCE_DIR}/install/${PROJECT_NAME}")
 install(TARGETS ${PROJECT_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX})    
 
 # sqlite so files
 file(GLOB SQLITE_SO_FILES "${CMAKE_CURRENT_SOURCE_DIR}/lib/libsqlite3.so*")
 message(STATUS "SQLite SO files found: ${SQLITE_SO_FILES}")
 install(FILES ${SQLITE_SO_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
-
-# mpegts so files
-file(GLOB MPEGTS_SO_FILES "${CMAKE_CURRENT_SOURCE_DIR}/lib/libts.so")
-message(STATUS "MPEGTS SO files found: ${MPEGTS_SO_FILES}")
-install(FILES ${MPEGTS_SO_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
-
-
 
