@@ -8,22 +8,18 @@
 1. SQLite avaliable 
 2. HLS Video recorder done
 3. Front end calendar done
+4. Heat map done
+5. Playback done
+6. Video progress bar TODO
 
 ## Hardware resources 
 1. SOC: RV1106, single core ARMv7, 1.2GHz
 2. RAM: 256MB, 150MB avaliable for webserver
 3. Storage: 256MB Nand Flash, 150MB avaliable
 
-
-## General requirements
+## Requirements and Solution
 1. View real time stream
-2. Choose the date and review the record
-3. Synchronize time from user's browser
-
-## Requirement and Solution
-1. View real time stream
-    + RTMP + NGINX 
-    + Possible functions: to save system recourses, auto start or turn off rtmp
+    + mjpg stream
 2. Choose the date and review the record
     + Check the segments of videos(for the segment of power shortages,every time the IPC start, it will create a new folder to write new m3u8 file in the folder of date. eg. 2025-01-24/00001)
     + Get the start time of each segments
@@ -34,35 +30,25 @@
 1. Front end: 
     + A calendar 
         - User can view the canlendar and click the date to review the record
-    + A video player that can 
+    + A video player (video.js) that can 
         - Play HLS video 
         - Get the time straps
         - Customization progress bar
-        - Display one or more m3u8 source within one video window
 
 2. Back end:
-    + A database 
+    + A database (sqlite)
         - Record/return the M3U8 file information(including the video is avaliable or not, the path, how many m3u8 files per day )
         - Return the motion time stramp of the video
-    + A rtmp server
+    + A mjpg streamer
     + Provide video files 
-3. A high efficent WebServer engine
-    + Nginx
+3. A portable WebServer
+    + Mongoose
 
 4. Components Organization 
     + Communication and interfaces 
-        - How to design a back-end server by FastCGI 
-        - The library/protocol to communicate 
-        - One typical usage: To synchronize IPC time 
-    + The ports of different components
+        - RESTful
 
 
 ## More things to consider
 1. Safety
-    + Do not allow user access the orignal ports without nginx
-
-## Tech stacks 
-1. video.js + hls.js
-2. Progress Bar: Canvas
-3. Delete old video: find /video -type d -mtime +7 -exec rm -rf {} \;
-4. 开发FastCGI核心接口
+    + Do not allow user download DB files

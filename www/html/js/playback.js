@@ -1,20 +1,19 @@
 document.addEventListener('DOMContentLoaded', function() {
     const urlParams = new URLSearchParams(window.location.search);
-    const date = urlParams.get('date') || '2025-01-01'; // 使用默认日期
+    const date = urlParams.get('date') || '1970-01-01'; // default to 1970-01-01
     console.log('target date:', date);
 
     const apiUrl = `/api/video_segments?date=${date}`;
     const player = videojs('my-video');
 
-    // 从 /api/video_segments 获取 JSON 数据
+    // get json data from server /api/video_segments
     fetch(apiUrl)
         .then(response => response.json())
         .then(data => {
-            console.log('Fetched data:', data); // 调试用，打印获取的数据
+            console.log('Fetched data:', data); // debug
             if (data && Array.isArray(data.video_segments)) {
-                // 生成表格
                 generateTable(data.video_segments);
-                // 默认播放第一段视频
+                // play the first video segment
                 if (data.video_segments.length > 0) {
                     playVideoSegment(data.video_segments[0].folder, 0);
                 }
@@ -26,12 +25,12 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Error fetching video segments:', error);
         });
 
-    // 生成表格函数
+
     function generateTable(data) {
         const table = document.createElement('table');
         table.id = 'video-segments-table';
 
-        // 创建表头
+        //  create table header
         const thead = document.createElement('thead');
         const headerRow = document.createElement('tr');
 
@@ -45,7 +44,7 @@ document.addEventListener('DOMContentLoaded', function() {
         thead.appendChild(headerRow);
         table.appendChild(thead);
 
-        // 创建表格主体
+        // create table body
         const tbody = document.createElement('tbody');
 
         data.forEach((item, index) => {
@@ -60,7 +59,7 @@ document.addEventListener('DOMContentLoaded', function() {
             row.appendChild(tdPowerOutage);
             row.appendChild(tdRecoverTime);
 
-            // 行点击事件
+            // add click event listener to each row
             row.addEventListener('click', function() {
                 playVideoSegment(item.folder, index);
             });
@@ -72,7 +71,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.body.insertBefore(table, document.getElementById('my-video'));
     }
 
-    // 播放视频段函数
+    // play video segment
     function playVideoSegment(folder, index) {
         const videoSource = `/hls/${date}/${folder}/index.m3u8`;
         player.src({
@@ -84,7 +83,7 @@ document.addEventListener('DOMContentLoaded', function() {
         highlightRow(index);
     }
 
-    // 高亮当前行
+    // highlight the selected row
     function highlightRow(index) {
         const rows = document.querySelectorAll('#video-segments-table tbody tr');
         rows.forEach((row, idx) => {

@@ -6,8 +6,8 @@ NC='\033[0m' # No Color
 ROOT_PWD=$(cd "$(dirname $0)" && pwd)
 # Function to handle signals function 
 handle_signal() { 
-	#echo -e "\n${RED}Signal caught, rebooting device...${NC}" 
-	#adb shell reboot 
+	echo -e "\n${RED}Signal caught, rebooting device...${NC}" 
+	adb shell reboot 
 	exit 
 } 
 # Trap signals 
@@ -46,11 +46,11 @@ if [ $? -eq 0 ]; then
 	#copy the install folder to the RV1106 board
 	#adb shell ./oem/usr/bin/RkLunch-stop.sh
 	#adb shell rm -rf /mnt/sdcard/*
-	adb push ${ROOT_PWD}/install/MyMD_demo /mnt/sdcard/
-	adb push ${ROOT_PWD}/www /mnt/sdcard/MyMD_demo/
-	adb shell chmod +x /mnt/sdcard/MyMD_demo/MyMD
-	echo "executing the program on the RV1106 board"
-	#adb shell ./mnt/sdcard/MyMD_demo/MyMD
+	adb push ${ROOT_PWD}/install/MotionSense /mnt/sdcard/
+	adb push ${ROOT_PWD}/www /mnt/sdcard/MotionSense/
+	adb shell chmod +x /mnt/sdcard/MotionSense/MotionSense
+	#echo "executing the program on the RV1106 board"
+	#adb shell ./mnt/sdcard/MotionSense/MotionSense
 else 
 	echo -e "${RED}Make failed to execute${NC}"
 fi

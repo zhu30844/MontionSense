@@ -1,65 +1,43 @@
+/*****************************************************************************
+* | File        :   db.c
+* | Author      :   ZIXUAN ZHU
+* | Function    :   Database operations
+* | Info        :
+*----------------
+* |	This version:   V1.0
+* | Date        :   2025-02-16
+* | Info        :   Basic version
+*
+# The MIT License (MIT)
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to  whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS OR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+#
+******************************************************************************/
+
 #include "db_comm.h"
 
 pthread_mutex_t db_init_mutex;
-int interrupt_times;
 
 Database video_metadata_db;
 Database event_logs_db;
 
-int testSQLite()
-{
-    sqlite3 *db;
-    char *errMsg = 0;
-    int rc;
-    const char *sql;
-    // Open database connection
-    rc = sqlite3_open(":memory:", &db);
-    if (rc)
-    {
-        fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
-        return 0;
-    }
-    // Create SQL table
-    sql = "CREATE TABLE TEST (ID INT PRIMARY KEY NOT NULL, NAME TEXT NOT NULL);";
-    rc = sqlite3_exec(db, sql, 0, 0, &errMsg);
-    if (rc != SQLITE_OK)
-    {
-        fprintf(stderr, "SQL error: %s\n", errMsg);
-        sqlite3_free(errMsg);
-        sqlite3_close(db);
-        return 0;
-    }
-    // Insert data into table
-    sql = "INSERT INTO TEST (ID, NAME) VALUES (1, 'Alice');";
-    rc = sqlite3_exec(db, sql, 0, 0, &errMsg);
-    if (rc != SQLITE_OK)
-    {
-        fprintf(stderr, "SQL error: %s\n", errMsg);
-        sqlite3_free(errMsg);
-        sqlite3_close(db);
-        return 0;
-    }
-    // Read data from table
-    sql = "SELECT ID, NAME FROM TEST;";
-    sqlite3_stmt *stmt;
-    rc = sqlite3_prepare_v2(db, sql, -1, &stmt, 0);
-    if (rc != SQLITE_OK)
-    {
-        fprintf(stderr, "Failed to fetch data: %s\n", sqlite3_errmsg(db));
-        sqlite3_close(db);
-        return 0;
-    }
-    while (sqlite3_step(stmt) == SQLITE_ROW)
-    {
-        int id = sqlite3_column_int(stmt, 0);
-        const unsigned char *name = sqlite3_column_text(stmt, 1);
-        printf("ID: %d, Name: %s\n", id, name);
-    }
-    sqlite3_finalize(stmt);
-    sqlite3_close(db);
-    return 1;
-}
-
+// initialize a database
 int db_init(Database *database, const char *db_path)
 {
     int rc;
@@ -80,6 +58,7 @@ int db_init(Database *database, const char *db_path)
     return 0;
 }
 
+// close a database
 void db_close(Database *database)
 {
     if (&database->rwlock == NULL)
@@ -91,6 +70,7 @@ void db_close(Database *database)
     pthread_rwlock_destroy(&database->rwlock);
 }
 
+// callback function for checking if a table exists
 int table_exists_callback(void *data, int argc, char **argv, char **col_name)
 {
     int *exists = (int *)data;
@@ -98,6 +78,7 @@ int table_exists_callback(void *data, int argc, char **argv, char **col_name)
     return 0;
 }
 
+// check if a table exists
 int check_table_exists(Database *database, const char *table_name)
 {
     int rc;
@@ -121,6 +102,7 @@ int check_table_exists(Database *database, const char *table_name)
     return table_exists;
 }
 
+// initialize the database EventLogs.db
 void event_logs_db_init(const char *dated_video_path)
 {
     printf("event_logs_db_init\n");
@@ -154,6 +136,7 @@ void event_logs_db_init(const char *dated_video_path)
     pthread_mutex_unlock(&db_init_mutex);
 }
 
+// initialize the database VideoMetadata.db
 void video_metadata_db_init()
 {
     pthread_mutex_lock(&db_init_mutex);
@@ -172,17 +155,21 @@ void video_metadata_db_init()
     pthread_mutex_unlock(&db_init_mutex);
 }
 
+// deinitialize the databases
 void databases_deinit()
 {
     db_close(&video_metadata_db);
     db_close(&event_logs_db);
+    printf("Databases deinitialized.\n");
 }
 
+// deinitialize the database EventLogs.db
 void event_logs_db_deinit()
 {
     db_close(&event_logs_db);
 }
 
+// deinitialize the database VideoMetadata.db
 void video_metadata_db_deinit()
 {
     db_close(&video_metadata_db);
@@ -212,15 +199,43 @@ void addVideoMetadata(const char *date, int motion_count)
 void update_motion_time_db(const char *date, int new_motion_count)
 {
     pthread_rwlock_wrlock(&video_metadata_db.rwlock);
-    const char *sql = "UPDATE VideoMetadata SET motion_count = ? WHERE date = ?;";
-    sqlite3_stmt *stmt;
-    if (sqlite3_prepare_v2(video_metadata_db.db, sql, -1, &stmt, NULL) == SQLITE_OK)
+    const char *sql_check = "SELECT COUNT(*) FROM VideoMetadata WHERE date = ?;";
+    sqlite3_stmt *stmt_check;
+
+    if (sqlite3_prepare_v2(video_metadata_db.db, sql_check, -1, &stmt_check, NULL) == SQLITE_OK)
     {
-        sqlite3_bind_int(stmt, 1, new_motion_count);
-        sqlite3_bind_text(stmt, 2, date, -1, SQLITE_STATIC);
-        sqlite3_step(stmt);
-        sqlite3_finalize(stmt);
+        sqlite3_bind_text(stmt_check, 1, date, -1, SQLITE_STATIC);
+
+        if (sqlite3_step(stmt_check) == SQLITE_ROW && sqlite3_column_int(stmt_check, 0) == 0)
+        {
+            const char *sql_insert = "INSERT INTO VideoMetadata (date, motion_count) VALUES (?, ?);";
+            sqlite3_stmt *stmt_insert;
+
+            if (sqlite3_prepare_v2(video_metadata_db.db, sql_insert, -1, &stmt_insert, NULL) == SQLITE_OK)
+            {
+                sqlite3_bind_text(stmt_insert, 1, date, -1, SQLITE_STATIC);
+                sqlite3_bind_int(stmt_insert, 2, new_motion_count);
+                sqlite3_step(stmt_insert);
+                sqlite3_finalize(stmt_insert);
+            }
+        }
+        else
+        {
+            const char *sql_update = "UPDATE VideoMetadata SET motion_count = ? WHERE date = ?;";
+            sqlite3_stmt *stmt_update;
+
+            if (sqlite3_prepare_v2(video_metadata_db.db, sql_update, -1, &stmt_update, NULL) == SQLITE_OK)
+            {
+                sqlite3_bind_int(stmt_update, 1, new_motion_count);
+                sqlite3_bind_text(stmt_update, 2, date, -1, SQLITE_STATIC);
+                sqlite3_step(stmt_update);
+                sqlite3_finalize(stmt_update);
+            }
+        }
+
+        sqlite3_finalize(stmt_check);
     }
+
     pthread_rwlock_unlock(&video_metadata_db.rwlock);
 }
 
@@ -248,11 +263,12 @@ int addEventLog(int folder, const char *start_time, int length)
     return id; // Return the ID
 }
 
+// update video length in frames arg:(interupt times, new frame number)
 int update_video_Length_db(int id, int new_length)
 {
     int result = -1; // Initialize result to an invalid value
     pthread_rwlock_wrlock(&event_logs_db.rwlock);
-    printf("update_video_Length_db\n");
+    // printf("update_video_Length_db\n");
     const char *sql = "UPDATE VideoSegments SET length = ? WHERE id = ?;";
     sqlite3_stmt *stmt;
     if (sqlite3_prepare_v2(event_logs_db.db, sql, -1, &stmt, NULL) == SQLITE_OK)
@@ -269,7 +285,7 @@ int update_video_Length_db(int id, int new_length)
     return result; // Return result
 }
 
-// 增加 EventDetails 数据
+// add motion time to EventDetails
 void addEventDetail(int video_id, int motion_time)
 {
     pthread_rwlock_wrlock(&event_logs_db.rwlock);
@@ -285,6 +301,7 @@ void addEventDetail(int video_id, int motion_time)
     pthread_rwlock_unlock(&event_logs_db.rwlock);
 }
 
+// get a database pointer by name
 Database *get_database(const char *db_name)
 {
     if (strcmp(db_name, "VideoMetadata") == 0)
@@ -295,11 +312,7 @@ Database *get_database(const char *db_name)
         return NULL;
 }
 
-void db_update_interrupt_times(int p_interrupt_times)
-{
-    interrupt_times = p_interrupt_times;
-}
-
+// Create table
 int create_table(Database *database, const char *create_sql)
 {
     int rc;
@@ -319,6 +332,7 @@ int create_table(Database *database, const char *create_sql)
     return 0;
 }
 
+// Get the motion count by date from EventLogs.db.db ---> EventDetails
 int getEventDetailsCount()
 {
     int count = 0;
@@ -341,6 +355,7 @@ int getEventDetailsCount()
     return count;
 }
 
+// Get the motion count by date from VideoMetadata.db ---> VideoMetadata
 int db_get_earliest_date(char *earliest_date)
 {
     int result = RK_SUCCESS;
@@ -359,14 +374,14 @@ int db_get_earliest_date(char *earliest_date)
             }
             else
             {
-                strncpy(earliest_date, "NULL", sizeof("NULL"));
+                strncpy(earliest_date, "NULL", sizeof("1970-01-01"));
                 earliest_date[sizeof("NULL") - 1] = '\0';
                 result = RK_FAILURE;
             }
         }
         else
         {
-            strncpy(earliest_date, "NULL", sizeof("NULL"));
+            strncpy(earliest_date, "NULL", sizeof("1970-01-01"));
             earliest_date[sizeof("NULL") - 1] = '\0';
             result = RK_FAILURE;
         }
@@ -375,7 +390,7 @@ int db_get_earliest_date(char *earliest_date)
     else
     {
         fprintf(stderr, "Failed to fetch data: %s\n", sqlite3_errmsg(video_metadata_db.db));
-        strncpy(earliest_date, "NULL", sizeof("NULL"));
+        strncpy(earliest_date, "NULL", sizeof("1970-01-01"));
         earliest_date[sizeof("NULL") - 1] = '\0';
         result = RK_FAILURE;
     }
@@ -383,6 +398,7 @@ int db_get_earliest_date(char *earliest_date)
     return result;
 }
 
+// Delete record by date from VideoMetadata.db ---> VideoMetadata
 int db_delete_record_date(const char *date)
 {
     int result = RK_SUCCESS;
@@ -465,7 +481,7 @@ char *get_all_video_segments_json(char *date)
     if (strcmp(date, date_string) != 0)
     {
         // create new database connection
-        char previous_db_path[64] = {0};   // Example: "/mnt/sdcard/DCIM/2021-07-01/
+        char previous_db_path[64] = {0}; // Example: "/mnt/sdcard/DCIM/2021-07-01/
         snprintf(previous_db_path, sizeof(previous_db_path), "/mnt/sdcard/DCIM/%s/EventLogs.db", date);
         Database previous_event_logs_db;
         db_init(&previous_event_logs_db, previous_db_path);
@@ -477,7 +493,7 @@ char *get_all_video_segments_json(char *date)
         // just use the existing database connection
         json_result = get_all_video_segments_json_(event_logs_db);
     }
-    
+
     return json_result;
 }
 
@@ -488,30 +504,30 @@ char *get_all_video_segments_json_(Database pEventLogs)
     char *json_result = NULL;
     sqlite3_stmt *stmt;
     pthread_rwlock_rdlock(&pEventLogs.rwlock);
-        int rc = sqlite3_prepare_v2(pEventLogs.db, sql, -1, &stmt, NULL);
-        if (rc != SQLITE_OK)
+    int rc = sqlite3_prepare_v2(pEventLogs.db, sql, -1, &stmt, NULL);
+    if (rc != SQLITE_OK)
+    {
+        fprintf(stderr, "Failed to prepare statement: %s\n", sqlite3_errmsg(pEventLogs.db));
+        pthread_rwlock_unlock(&pEventLogs.rwlock);
+        return NULL;
+    }
+    if (sqlite3_step(stmt) == SQLITE_ROW)
+    {
+        const unsigned char *json_text = sqlite3_column_text(stmt, 0);
+        if (json_text)
         {
-            fprintf(stderr, "Failed to prepare statement: %s\n", sqlite3_errmsg(pEventLogs.db));
-            pthread_rwlock_unlock(&pEventLogs.rwlock);
-            return NULL;
-        }
-        if (sqlite3_step(stmt) == SQLITE_ROW)
-        {
-            const unsigned char *json_text = sqlite3_column_text(stmt, 0);
-            if (json_text)
-            {
-                json_result = strdup((const char *)json_text);
-            }
-            else
-            {
-                json_result = strdup("[]"); // Return empty array if no data
-            }
+            json_result = strdup((const char *)json_text);
         }
         else
         {
-            fprintf(stderr, "Failed to retrieve data: %s\n", sqlite3_errmsg(pEventLogs.db));
+            json_result = strdup("[]"); // Return empty array if no data
         }
-        sqlite3_finalize(stmt);
-        pthread_rwlock_unlock(&pEventLogs.rwlock);
+    }
+    else
+    {
+        fprintf(stderr, "Failed to retrieve data: %s\n", sqlite3_errmsg(pEventLogs.db));
+    }
+    sqlite3_finalize(stmt);
+    pthread_rwlock_unlock(&pEventLogs.rwlock);
     return json_result;
 }

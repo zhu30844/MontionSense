@@ -1,4 +1,4 @@
-/* Calendar CSS 样式 */
+/* Calendar CSS*/
 #calendar {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
@@ -35,10 +35,9 @@ button:hover {
     background-color: #fff;
     padding: 10px;
     text-align: center;
-    /*new code*/
     transition: transform 0.2s;
 }
-/*new code start*/
+
 .day:hover {
     background-color: #edf7ed;
     transform: scale(1.05);
@@ -47,13 +46,13 @@ button:hover {
     background-color: #c5ecc1;
     transform: scale(0.95);
 }
-/*new code end */
+
 .day.header {
     background-color: #4CAF50;
     color: white;
     font-weight: bold;
 }
-/*new code start*/
+
 .day.header:hover,
 .day.header:active {
     background-color: #4CAF50;
@@ -61,5 +60,3 @@ button:hover {
     cursor: default;
 }
 
-
-/*new code end */
