@@ -22,7 +22,7 @@
 > For development and usage details, please refer to the source code in the `src` folder and documents in the `docs` folder.
 
 
-## Future Plants
+## Future Plans
 + Optimize web server code, or switch to a different webserver (e.g. Goahead, uhttpd).
 + Optimize the heatmap stytle, the web server front end.
 + Optimize the file writing, may use Asynchronous IO in future.
