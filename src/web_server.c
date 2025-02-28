@@ -63,7 +63,8 @@ static void broadcast_mjpeg_frame(struct mg_mgr *mgr, void *data, RK_U32 len)
 static void timer_callback(void *arg)
 {
     pthread_rwlock_rdlock(&image_addr->lock);
-    broadcast_mjpeg_frame(&mgr, image_addr->p, image_addr->size);
+    if(image_addr->p != NULL)
+        broadcast_mjpeg_frame(&mgr, image_addr->p, image_addr->size);
     pthread_rwlock_unlock(&image_addr->lock);
 }
 
