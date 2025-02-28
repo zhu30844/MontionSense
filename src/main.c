@@ -30,9 +30,9 @@ int main(int argc, char *argv[])
 	printf("System date: %s\n", get_date_string());
 	int ret = 0;
 	ret = storage_init();
-	ret |= web_server_init();
 	ret |= RK_MPI_SYS_Init();
 	ret |= rk_video_init();
+	ret |= web_server_init();
 	if (ret != RK_SUCCESS)
 	{
 		printf("Init failed!\n");
