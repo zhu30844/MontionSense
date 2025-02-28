@@ -16,7 +16,7 @@
 
 static struct mg_mgr mgr;
 static int web_server_run_ = 1;
-static const char *w_server_root = "/mnt/sdcard/MyMD_demo/www/html";  // web server root
+static const char *w_server_root = "/mnt/sdcard/MotionSense/www/html";  // web server root
 static const char *w_general_api = "/api/*";                          // general api, apientry point
 static const char *w_streamer_api = "/api/stream";                    // streamer api, jpg stream
 static const char *w_get_motion_count_api = "/api/motion_counts";     // get motion count api, to draw heatmap
