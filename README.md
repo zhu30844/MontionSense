@@ -1,8 +1,9 @@
 # Luckfox Pico MD (Motion Detection) MotionSense
 
-
 ## Project Update Log
+
 + ver 0.0.1
+
 1. First version, "Bobtail Lizard".
 
 # MotionSense Demo
@@ -14,22 +15,37 @@
 
 ## Key Features
 
-+ **Motion Detection:** Uses IVS (Intelligent Video Surveillance) modules to detect motion.  
-+ **Video Capture & Encoding:** Captures frames from camera sensors, encodes them using H.264, and store files in HLS format.  
-+ **Storage Management:** Manages video storage on SD cards, by organizing files into clearly structured folders based on date and log event times, and space cleanup routines.  
-+ **Web Server & Database:** Streams video via HTTP and logs motion events in SQLite databases for easy retrieval.  
++ **Motion Detection:** Uses IVS (Intelligent Video Surveillance) modules to detect motion.
++ **Video Capture & Encoding:** Captures frames from camera sensors, encodes them using H.264, and store files in HLS format.
++ **Storage Management:** Manages video storage on SD cards, by organizing files into clearly structured folders based on date and log event times, and space cleanup routines.
++ **Web Server & Database:** Streams video via HTTP and logs motion events in SQLite databases for easy retrieval.
 
 > For development and usage details, please refer to the source code in the `src` folder and documents in the `docs` folder.
 
+## Installation 
+
++ **Clone Luckfox SDK**
++ **Clone this repo inside the SDK folder**
++ **Copy the *.devcontainer* folder to the root of SDK**
++ **Open the SDK folder with VS Code and reopen the folder with the plugin *devcontainer***
++ **Switch to the project folder and run *build.sh***
++ **You can run the build.sh with the argument *clean* or *run (Pushes the binary file to the board via ADB)***
+
+## Dependencies
+
++ All dependencies are either compiled into libraries in the *lib* folder or included in the Luckfox SDK.
+
 
 ## Future Plans
+
 + Optimize web server code, or switch to a different webserver (e.g. Goahead, uhttpd).
-+ Optimize the heatmap stytle, the web server front end.
++ Optimize the heatmap style, the web server front end.
 + Optimize the file writing, may use Asynchronous IO in future.
 + Add OSD, add timestamp watermarks to the top left corner of the video.
-+ Finish the player-bar marking feature, to help user nevigate motion spots by video progress bar.
++ Finish the player-bar marking feature, to help user navigate motion spots by video progress bar.
 
 ## Known Issues
-+ Mongoose will pop out socker error when autofreshing video streamer page or caching .ts files.
+
++ Mongoose will pop out socket error when autofreshing video streamer page or caching .ts files.
 + Failed to achieve the target frame rate, such as 30fps.
 + PTS (Presentation Time Stamp) and DTS (Decoding Time Stamp) are not accurate.
