@@ -74,13 +74,17 @@ static int hls_handler(void *m3u8, const void *data, size_t bytes, int64_t pts, 
 
     int discontinue = -1 != s_dts ? 0 : (dts > s_dts + HLS_DURATION / 2 ? 1 : 0);
     s_dts = dts;
+    
     // get the ts file path
     snprintf(ts_file_path, sizeof(ts_file_path) - 1, "%s%05d/%05d.ts", date_video_path, interrupt_times, i);
     snprintf(ts_file_name, sizeof(ts_file_name) - 1, "%05d.ts", i++);
+    
     // get the m3u8 file path
     snprintf(m3u8_file_path, sizeof(m3u8_file_path) - 1, "%s%05d/index.m3u8", date_video_path, interrupt_times);
+    
     // add ts file name to m3u8 list
     hls_m3u8_add((hls_m3u8_t *)m3u8, ts_file_name, pts, duration, discontinue);
+    
     // get the m3u8 list
     hls_m3u8_playlist((hls_m3u8_t *)m3u8, 1, m3u8_list_buffer, sizeof(m3u8_list_buffer));
     // write the m3u8 file
@@ -101,7 +105,7 @@ static int hls_handler(void *m3u8, const void *data, size_t bytes, int64_t pts, 
     // disk space check trigger, every 10 ts files
     pthread_mutex_lock(&s_free_space_mutex);
     ts_file_count++;
-    if (ts_file_count >= CLEANUP_INTERVAL)
+    if (ts_file_count >= CLEANUP_INTERVAL) 
     {
         pthread_cond_signal(&s_free_space_cond);
     }
