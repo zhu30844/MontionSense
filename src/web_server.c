@@ -62,10 +62,10 @@ static void broadcast_mjpeg_frame(struct mg_mgr *mgr, void *data, RK_U32 len)
 // timer callback,  to broadcast mjpeg frame
 static void timer_callback(void *arg)
 {
-    pthread_rwlock_rdlock(&image_addr->lock);
+    pthread_mutex_lock(&image_addr->lock);
     if(image_addr->p != NULL)
         broadcast_mjpeg_frame(&mgr, image_addr->p, image_addr->size);
-    pthread_rwlock_unlock(&image_addr->lock);
+    pthread_mutex_unlock(&image_addr->lock);
 }
 
 // web server

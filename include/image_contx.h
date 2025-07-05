@@ -8,7 +8,7 @@ typedef struct
 {
     void *p;
     RK_U32 size;
-    pthread_rwlock_t lock;
+    pthread_mutex_t lock;
 } image_addr_t;
 
 
