@@ -42,32 +42,37 @@ int db_init(Database *database, const char *db_path)
 {
     int rc;
 
-    pthread_rwlock_init(&database->rwlock, NULL);
-    pthread_rwlock_wrlock(&database->rwlock);
+    pthread_mutex_init(&database->mutex, NULL);
+    pthread_mutex_lock(&database->mutex);
 
     rc = sqlite3_open(db_path, &database->db);
     if (rc != SQLITE_OK)
     {
         fprintf(stderr, "Connecting %s failed: %s\n", db_path, sqlite3_errmsg(database->db));
         sqlite3_close(database->db);
-        pthread_rwlock_unlock(&database->rwlock);
+        pthread_mutex_unlock(&database->mutex);
         return 1;
     }
 
-    pthread_rwlock_unlock(&database->rwlock);
+    // WAL mode
+    sqlite3_exec(database->db, "PRAGMA journal_mode=WAL", 0, 0, 0);
+    sqlite3_exec(database->db, "PRAGMA synchronous=NORMAL", 0, 0, 0);
+    sqlite3_exec(database->db, "PRAGMA cache_size=1000", 0, 0, 0);
+
+    pthread_mutex_unlock(&database->mutex);
     return 0;
 }
 
 // close a database
 void db_close(Database *database)
 {
-    if (&database->rwlock == NULL)
+    if (&database->mutex == NULL)
         return;
-    pthread_rwlock_wrlock(&database->rwlock);
+    pthread_mutex_lock(&database->mutex);
     if (database->db != NULL)
         sqlite3_close(database->db);
-    pthread_rwlock_unlock(&database->rwlock);
-    pthread_rwlock_destroy(&database->rwlock);
+    pthread_mutex_unlock(&database->mutex);
+    pthread_mutex_destroy(&database->mutex);
 }
 
 // callback function for checking if a table exists
@@ -88,9 +93,9 @@ int check_table_exists(Database *database, const char *table_name)
 
     snprintf(sql, sizeof(sql), "SELECT name FROM sqlite_master WHERE type='table' AND name='%s';", table_name);
 
-    pthread_rwlock_rdlock(&database->rwlock);
+    pthread_mutex_lock(&database->mutex);
     rc = sqlite3_exec(database->db, sql, table_exists_callback, &table_exists, &errMsg);
-    pthread_rwlock_unlock(&database->rwlock);
+    pthread_mutex_unlock(&database->mutex);
 
     if (rc != SQLITE_OK)
     {
@@ -176,13 +181,12 @@ void video_metadata_db_deinit()
 }
 
 // curd operations
-// 增加 VideoMetadata 数据
 void addVideoMetadata(const char *date, int motion_count)
 {
     printf("addVideoMetadata\n");
     printf("date: %s\n", date);
     printf("motion_count: %d\n", motion_count);
-    pthread_rwlock_wrlock(&video_metadata_db.rwlock);
+    pthread_mutex_lock(&video_metadata_db.mutex);
     const char *sql = "INSERT INTO VideoMetadata (date, motion_count) VALUES (?, ?);";
     sqlite3_stmt *stmt;
     if (sqlite3_prepare_v2(video_metadata_db.db, sql, -1, &stmt, NULL) == SQLITE_OK)
@@ -192,13 +196,13 @@ void addVideoMetadata(const char *date, int motion_count)
         sqlite3_step(stmt);
         sqlite3_finalize(stmt);
     }
-    pthread_rwlock_unlock(&video_metadata_db.rwlock);
+    pthread_mutex_unlock(&video_metadata_db.mutex);
 }
 
 // VideoMetadata motion
 void update_motion_time_db(const char *date, int new_motion_count)
 {
-    pthread_rwlock_wrlock(&video_metadata_db.rwlock);
+    pthread_mutex_lock(&video_metadata_db.mutex);
     const char *sql_check = "SELECT COUNT(*) FROM VideoMetadata WHERE date = ?;";
     sqlite3_stmt *stmt_check;
 
@@ -236,14 +240,14 @@ void update_motion_time_db(const char *date, int new_motion_count)
         sqlite3_finalize(stmt_check);
     }
 
-    pthread_rwlock_unlock(&video_metadata_db.rwlock);
+    pthread_mutex_unlock(&video_metadata_db.mutex);
 }
 
 // add power outage event
 int addEventLog(int folder, const char *start_time, int length)
 {
     int id = -1; // Initialize the ID to an invalid value
-    pthread_rwlock_wrlock(&event_logs_db.rwlock);
+    pthread_mutex_lock(&event_logs_db.mutex);
     char folder_s[7];
     snprintf(folder_s, sizeof(folder_s), "%05d", folder);
     const char *sql = "INSERT INTO VideoSegments (folder, start_time, length) VALUES (?, ?, ?);";
@@ -259,7 +263,7 @@ int addEventLog(int folder, const char *start_time, int length)
         }
         sqlite3_finalize(stmt);
     }
-    pthread_rwlock_unlock(&event_logs_db.rwlock);
+    pthread_mutex_unlock(&event_logs_db.mutex);
     return id; // Return the ID
 }
 
@@ -267,7 +271,7 @@ int addEventLog(int folder, const char *start_time, int length)
 int update_video_Length_db(int id, int new_length)
 {
     int result = -1; // Initialize result to an invalid value
-    pthread_rwlock_wrlock(&event_logs_db.rwlock);
+    pthread_mutex_lock(&event_logs_db.mutex);
     // printf("update_video_Length_db\n");
     const char *sql = "UPDATE VideoSegments SET length = ? WHERE id = ?;";
     sqlite3_stmt *stmt;
@@ -281,14 +285,14 @@ int update_video_Length_db(int id, int new_length)
         }
         sqlite3_finalize(stmt);
     }
-    pthread_rwlock_unlock(&event_logs_db.rwlock);
+    pthread_mutex_unlock(&event_logs_db.mutex);
     return result; // Return result
 }
 
 // add motion time to EventDetails
 void addEventDetail(int video_id, int motion_time)
 {
-    pthread_rwlock_wrlock(&event_logs_db.rwlock);
+    pthread_mutex_lock(&event_logs_db.mutex);
     const char *sql = "INSERT INTO EventDetails (video_id, motion_time) VALUES (?, ?);";
     sqlite3_stmt *stmt;
     if (sqlite3_prepare_v2(event_logs_db.db, sql, -1, &stmt, NULL) == SQLITE_OK)
@@ -298,7 +302,7 @@ void addEventDetail(int video_id, int motion_time)
         sqlite3_step(stmt);
         sqlite3_finalize(stmt);
     }
-    pthread_rwlock_unlock(&event_logs_db.rwlock);
+    pthread_mutex_unlock(&event_logs_db.mutex);
 }
 
 // get a database pointer by name
@@ -318,9 +322,9 @@ int create_table(Database *database, const char *create_sql)
     int rc;
     char *errMsg = 0;
 
-    pthread_rwlock_wrlock(&database->rwlock);
+    pthread_mutex_lock(&database->mutex);
     rc = sqlite3_exec(database->db, create_sql, 0, 0, &errMsg);
-    pthread_rwlock_unlock(&database->rwlock);
+    pthread_mutex_unlock(&database->mutex);
 
     if (rc != SQLITE_OK)
     {
@@ -336,7 +340,7 @@ int create_table(Database *database, const char *create_sql)
 int getEventDetailsCount()
 {
     int count = 0;
-    pthread_rwlock_rdlock(&event_logs_db.rwlock);
+    pthread_mutex_lock(&event_logs_db.mutex);
     const char *sql = "SELECT COUNT(*) FROM EventDetails;";
     sqlite3_stmt *stmt;
     if (sqlite3_prepare_v2(event_logs_db.db, sql, -1, &stmt, NULL) == SQLITE_OK)
@@ -351,7 +355,7 @@ int getEventDetailsCount()
     {
         fprintf(stderr, "Failed to fetch count: %s\n", sqlite3_errmsg(event_logs_db.db));
     }
-    pthread_rwlock_unlock(&event_logs_db.rwlock);
+    pthread_mutex_unlock(&event_logs_db.mutex);
     return count;
 }
 
@@ -359,7 +363,7 @@ int getEventDetailsCount()
 int db_get_earliest_date(char *earliest_date)
 {
     int result = RK_SUCCESS;
-    pthread_rwlock_rdlock(&video_metadata_db.rwlock);
+    pthread_mutex_lock(&video_metadata_db.mutex);
     const char *sql = "SELECT MIN(date) FROM VideoMetadata;";
     sqlite3_stmt *stmt;
     if (sqlite3_prepare_v2(video_metadata_db.db, sql, -1, &stmt, NULL) == SQLITE_OK)
@@ -394,7 +398,7 @@ int db_get_earliest_date(char *earliest_date)
         earliest_date[sizeof("NULL") - 1] = '\0';
         result = RK_FAILURE;
     }
-    pthread_rwlock_unlock(&video_metadata_db.rwlock);
+    pthread_mutex_unlock(&video_metadata_db.mutex);
     return result;
 }
 
@@ -402,7 +406,7 @@ int db_get_earliest_date(char *earliest_date)
 int db_delete_record_date(const char *date)
 {
     int result = RK_SUCCESS;
-    pthread_rwlock_wrlock(&video_metadata_db.rwlock);
+    pthread_mutex_lock(&video_metadata_db.mutex);
     const char *sql = "DELETE FROM VideoMetadata WHERE date = ?;";
     sqlite3_stmt *stmt;
     if (sqlite3_prepare_v2(video_metadata_db.db, sql, -1, &stmt, NULL) == SQLITE_OK)
@@ -424,7 +428,7 @@ int db_delete_record_date(const char *date)
         fprintf(stderr, "Failed to prepare statement: %s\n", sqlite3_errmsg(video_metadata_db.db));
         result = RK_FAILURE;
     }
-    pthread_rwlock_unlock(&video_metadata_db.rwlock);
+    pthread_mutex_unlock(&video_metadata_db.mutex);
     return result;
 }
 
@@ -435,12 +439,12 @@ char *get_all_motion_counts_json()
     char *json_result = NULL;
     sqlite3_stmt *stmt;
 
-    pthread_rwlock_rdlock(&video_metadata_db.rwlock);
+    pthread_mutex_lock(&video_metadata_db.mutex);
     int rc = sqlite3_prepare_v2(video_metadata_db.db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK)
     {
         fprintf(stderr, "Failed to prepare statement: %s\n", sqlite3_errmsg(video_metadata_db.db));
-        pthread_rwlock_unlock(&video_metadata_db.rwlock);
+        pthread_mutex_unlock(&video_metadata_db.mutex);
         return NULL;
     }
 
@@ -462,7 +466,7 @@ char *get_all_motion_counts_json()
     }
 
     sqlite3_finalize(stmt);
-    pthread_rwlock_unlock(&video_metadata_db.rwlock);
+    pthread_mutex_unlock(&video_metadata_db.mutex);
 
     return json_result;
 }
@@ -503,12 +507,12 @@ char *get_all_video_segments_json_(Database pEventLogs)
     const char *sql = "SELECT json_group_array(json_object('folder', folder, 'start_time', start_time, 'length', length)) FROM VideoSegments;";
     char *json_result = NULL;
     sqlite3_stmt *stmt;
-    pthread_rwlock_rdlock(&pEventLogs.rwlock);
+    pthread_mutex_lock(&pEventLogs.mutex);
     int rc = sqlite3_prepare_v2(pEventLogs.db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK)
     {
         fprintf(stderr, "Failed to prepare statement: %s\n", sqlite3_errmsg(pEventLogs.db));
-        pthread_rwlock_unlock(&pEventLogs.rwlock);
+        pthread_mutex_unlock(&pEventLogs.mutex);
         return NULL;
     }
     if (sqlite3_step(stmt) == SQLITE_ROW)
@@ -528,6 +532,6 @@ char *get_all_video_segments_json_(Database pEventLogs)
         fprintf(stderr, "Failed to retrieve data: %s\n", sqlite3_errmsg(pEventLogs.db));
     }
     sqlite3_finalize(stmt);
-    pthread_rwlock_unlock(&pEventLogs.rwlock);
+    pthread_mutex_unlock(&pEventLogs.mutex);
     return json_result;
 }
