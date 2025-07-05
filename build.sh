@@ -49,8 +49,8 @@ if [ $? -eq 0 ]; then
 	adb push ${ROOT_PWD}/install/MotionSense /mnt/sdcard/
 	adb push ${ROOT_PWD}/www /mnt/sdcard/MotionSense/
 	adb shell chmod +x /mnt/sdcard/MotionSense/MotionSense
-	#echo "executing the program on the RV1106 board"
-	#adb shell ./mnt/sdcard/MotionSense/MotionSense
+	echo "executing the program on the RV1106 board"
+	adb shell ./mnt/sdcard/MotionSense/MotionSense
 else 
 	echo -e "${RED}Make failed to execute${NC}"
 fi
