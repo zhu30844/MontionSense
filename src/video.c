@@ -19,7 +19,7 @@ float md_area_threshold_rate = 0.25;
 static int g_video_run_ = 1;
 static int pipe_id_ = 0;
 pthread_t frame_rate_updater_thread, rkipc_get_venc_0_thread, rkipc_get_venc_1_thread;
-pthread_rwlock_t frame_rate_rwlock;
+pthread_mutex_t frame_rate_mutex;
 volatile int motion_detected = 0;
 int video_frame_rate = 1; // 1: 1fps 30: 30fps
 RK_U32 vi_video_hight = 1080;
@@ -92,9 +92,9 @@ static void *rkipc_get_venc_0(void *arg)
 	{
 		before_time = get_curren_time_ms();
 		// get current frame rate
-		pthread_rwlock_rdlock(&frame_rate_rwlock);
+		pthread_mutex_lock(&frame_rate_mutex);
 		frame_cycle_time_ms = 1000 / video_frame_rate;
-		pthread_rwlock_unlock(&frame_rate_rwlock);
+		pthread_mutex_unlock(&frame_rate_mutex);
 		// printf("frame_cycle_time_ms is %d\n",
 		//  frame_cycle_time_ms);
 		//  get the frame
@@ -140,9 +140,9 @@ static void *rkipc_get_venc_0(void *arg)
 				for (int i = 0; i < 100; i++)
 				{
 					before_time = get_curren_time_ms();
-					pthread_rwlock_rdlock(&frame_rate_rwlock);
+					pthread_mutex_lock(&frame_rate_mutex);
 					frame_cycle_time_ms = 1000 / video_frame_rate;
-					pthread_rwlock_unlock(&frame_rate_rwlock);
+					pthread_mutex_unlock(&frame_rate_mutex);
 					if (frame_cycle_time_ms == 1000 / HIGH_FRAME_RATE)
 						break;
 					cost_time = get_curren_time_ms() - before_time;
@@ -172,10 +172,10 @@ static void *rkipc_get_venc_1(void *arg)
 		if (ret == RK_SUCCESS)
 		{
 			void *data = RK_MPI_MB_Handle2VirAddr(stFrame.pstPack->pMbBlk);
-			pthread_rwlock_wrlock(&image_addr.lock);
+			pthread_mutex_lock(&image_addr.lock);
 			image_addr.p = data;
 			image_addr.size = stFrame.pstPack->u32Len;
-			pthread_rwlock_unlock(&image_addr.lock);
+			pthread_mutex_unlock(&image_addr.lock);
 			usleep(1000 * 10);
 			ret = RK_MPI_VENC_ReleaseStream(1, &stFrame);
 			if (ret != RK_SUCCESS)
@@ -205,12 +205,12 @@ static void *rkipc_get_ivs_0(void *arg)
 		before_time = get_curren_time_ms();
 		if (motion_detecter(0) != motion_detected)
 		{
-			pthread_rwlock_wrlock(&frame_rate_rwlock);
+			pthread_mutex_lock(&frame_rate_mutex);
 			motion_detected = (motion_detected + 1) % 2;
 			video_frame_rate = (motion_detected == MOTION_DETECTED
 									? HIGH_FRAME_RATE
 									: LOW_FRAME_RATE);
-			pthread_rwlock_unlock(&frame_rate_rwlock);
+			pthread_mutex_unlock(&frame_rate_mutex);
 			// inform sqlite
 
 			if (frame_rate_setter(0, video_frame_rate))
@@ -740,7 +740,7 @@ static int rkipc_pipe_2_init()
 	else
 		printf("Bind VI and IVS success\n");
 
-	pthread_rwlock_init(&frame_rate_rwlock, NULL);
+	pthread_mutex_init(&frame_rate_mutex, NULL);
 
 	return RK_SUCCESS;
 }
@@ -770,7 +770,7 @@ static int rkipc_pipe_2_deinit()
 	ret = RK_MPI_VI_DisableChn(pipe_id_, VIDEO_PIPE_2);
 	if (ret)
 		printf("Pipe 2:ERROR: Destroy VI error! ret=%#x\n", ret);
-	pthread_rwlock_destroy(&frame_rate_rwlock);
+	pthread_mutex_destroy(&frame_rate_mutex);
 	printf("Pipe 2:rk pipe_2 deinit success\n");
 	return 0;
 }
@@ -790,7 +790,7 @@ int rk_video_init()
 {
 	int ret = 0;
 	g_video_run_ = 1;
-	pthread_rwlock_init(&image_addr.lock, NULL);
+	pthread_mutex_init(&image_addr.lock, NULL);
 	web_send_image_init(&image_addr);
 	ret = rkipc_vi_dev_init();
 	printf("rk vi init done\n");
