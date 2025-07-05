@@ -50,7 +50,7 @@ extern "C"
     typedef struct
     {
         sqlite3 *db;
-        pthread_rwlock_t rwlock;
+        pthread_mutex_t mutex;
     } Database;
 
     int db_init(Database *database, const char *db_path);
