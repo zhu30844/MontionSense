@@ -16,20 +16,29 @@
 ## Key Features
 
 + **Motion Detection:** Uses IVS (Intelligent Video Surveillance) modules to detect motion.
-+ **Video Capture & Encoding:** Captures frames from camera sensors, encodes them using H.264, and store files in HLS format.
-+ **Storage Management:** Manages video storage on SD cards, by organizing files into clearly structured folders based on date and log event times, and space cleanup routines.
++ **Video Capture & Encoding:** Captures frames from camera sensors, encodes them using H.264, and stores files in HLS format.
++ **Storage Management:** Organizes video files in date-based folders with automated space cleanup routines.
 + **Web Server & Database:** Streams video via HTTP and logs motion events in SQLite databases for easy retrieval.
 
 > For development and usage details, please refer to the source code in the `src` folder and documents in the `docs` folder.
 
+## Hardware/Environment Requirements
+
++ **Tested and verified on Luckfox Pico Pro Max**
++ **SD card requirements: ext4 filesystem, minimum 4GB storage**
++ **Mount point `/mnt/sdcard` must be available before running MotionSense**
+
+
 ## Installation 
 
++ **Make sure your host machine is running x86-64 linux desktop and VScode is installed**
 + **Clone Luckfox SDK**
 + **Clone this repo inside the SDK folder**
 + **Copy the *.devcontainer* folder to the root of SDK**
 + **Open the SDK folder with VS Code and reopen the folder with the plugin *devcontainer***
 + **Switch to the project folder and run *build.sh***
 + **You can run the build.sh with the argument *clean* or *run (Pushes the binary file to the board via ADB)***
++ For more information about cross-compiling and environment set-up, please refer to the Luckfox wiki
 
 ## Dependencies
 
@@ -43,6 +52,7 @@
 + Optimize the file writing, may use Asynchronous IO in future.
 + Add OSD, add timestamp watermarks to the top left corner of the video.
 + Finish the player-bar marking feature, to help user navigate motion spots by video progress bar.
++ Create a Docker image for automated command-line compilation and CI/CD pipeline integration.
 
 ## Known Issues
 
