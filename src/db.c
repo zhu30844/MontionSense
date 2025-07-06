@@ -460,7 +460,7 @@ int update_video_Length_db(int id, int new_length)
 // add motion time to EventDetails
 db_result_t addEventDetail(int video_id, int motion_time)
 {
-    if (video_id <= 0) {
+    if (video_id < 0) {
         fprintf(stderr, "addEventDetail: Invalid video_id: %d\n", video_id);
         return DB_ERROR_INVALID_PARAM;
     }
