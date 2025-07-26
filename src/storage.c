@@ -32,6 +32,12 @@
 
 #include "storage_comm.h"
 
+#ifdef LOG_TAG
+#undef LOG_TAG
+#endif
+#define LOG_TAG "storage.c"
+
+
 FILE *fp_ts = NULL;
 const char *video_folder = "/mnt/sdcard/DCIM/";
 static char *date = NULL;
@@ -121,7 +127,7 @@ static int get_disk_size(char *path, uint32_t *total_size, uint32_t *free_size, 
     // get the disk info
     if (statfs(path, &diskInfo))
     {
-        printf("statfs[%s] failed", path);
+        LOG_ERROR("statfs[%s] failed", path);
         return -1;
     }
     uint64_t used_disk = (uint64_t)(diskInfo.f_blocks - diskInfo.f_bfree) * diskInfo.f_bsize;
@@ -145,7 +151,7 @@ int storage_init()
     {
         if (pthread_mutex_init(&mutexes[i], NULL) != 0)
         {
-            perror("pthread_mutex_init");
+            LOG_ERROR("pthread_mutex_init");
             return -1;
         }
     }
@@ -153,7 +159,7 @@ int storage_init()
     {
         if (pthread_cond_init(&conds[i], NULL) != 0)
         {
-            perror("pthread_cond_init");
+            LOG_ERROR("pthread_cond_init");
             return -1;
         }
     }
@@ -166,31 +172,31 @@ int storage_init()
     DIR *d = opendir("/mnt/sdcard");
     if (d == NULL)
     {
-        printf("No SD card found.\n");
+        LOG_ERROR("No SD card found.\n");
         SD_card_exist = RK_FALSE;
         return RK_FAILURE;
     }
     else
     {
-        printf("SD card loaded.\n");
+        LOG_INFO("SD card loaded.\n");
         SD_card_exist = RK_TRUE;
         closedir(d);
     }
     get_disk_size("/mnt/sdcard", &disk_size, &free_size, &used_size);
-    printf("Disk size is \t%.3f GB\nFree size is \t%.3f GB\nUsed disk is \t%llu MB\n", disk_size / 1024.0, free_size / 1024.0, used_size);
+    LOG_INFO("Disk size is \t%.3f GB\nFree size is \t%.3f GB\nUsed disk is \t%llu MB\n", disk_size / 1024.0, free_size / 1024.0, used_size);
     PRINT_LINE();
 
     printf("create disk space cleanup thread\n");
     if (pthread_create(&space_cleanup_tid, NULL, space_cleanup_thread, NULL) != 0)
     {
-        perror("pthread_create");
+        LOG_ERROR("pthread_create");
         return RK_FAILURE;
     }
 
     // check the video folder
     if (folder_create(video_folder) == FOLDER_CREATE_SUCCESS) // video folder DCIM exists
     {
-        printf("Folder %s created. Nice to meet you~ \n", video_folder);
+        LOG_INFO("Folder %s created. Nice to meet you~ \n", video_folder);
         // create a soft link for web server
         system("ln -s /mnt/sdcard/DCIM /mnt/sdcard/MotionSense/www/html/hls");
     }
@@ -207,17 +213,17 @@ int storage_init()
     hls = hls_media_create(HLS_DURATION * 1000, hls_handler, m3u);
     if (hls == NULL || m3u == NULL)
     {
-        printf("storage init failed!\n");
+        LOG_ERROR("storage init failed!\n");
         return RK_FAILURE;
     }
-    printf("storage init success!\n");
+    LOG_INFO("storage init success!\n");
     PRINT_LINE();
     return RK_SUCCESS;
 }
 
 int storage_deinit()
 {
-    printf("storage deinit...\n");
+    LOG_INFO("storage deinit...\n");
     // write the last ts file
     hls_media_input(hls, PSI_STREAM_H264, NULL, 0, 0, 0, 0);
     g_storage_run_ = 0;
@@ -246,7 +252,7 @@ int storage_deinit()
         pthread_cond_destroy(&conds[i]);
     }
 
-    printf("storage deinit success.\n");
+    LOG_INFO("storage deinit success.\n");
     return RK_SUCCESS;
 }
 
@@ -270,7 +276,7 @@ int write_frame_2_SD(RK_U8 *data, RK_U32 len, RK_BOOL is_key_frame, int frame_cy
     // frame rate changed, record event
     if (frame_cycle_time != frame_cycle_time_ms)
     {
-        // printf("frame rate changed\n");
+        LOG_DEBUG("frame rate changed\n");
         motion_counter++;
         // inform db event_logs_db ---> EventDetails
         addEventDetail(interrupt_times, frame_number);
@@ -298,18 +304,18 @@ int folder_create(const char *folder)
     {
         if (mkdir(folder, 0777) == -1)
         {
-            printf("Create %s fail...\n", folder);
+            LOG_ERROR("Create %s fail...\n", folder);
             ret = -1;
         }
         else
         {
-            printf("Create %s success!\n", folder);
+            LOG_INFO("Create %s success!\n", folder);
             ret = 0;
         }
     }
     else
     {
-        printf("Folder %s exists.\n", folder);
+        LOG_INFO("Folder %s exists.\n", folder);
         closedir(d);
         ret = 1;
     }
@@ -321,17 +327,17 @@ int config_hls()
 {
     new_stream = RK_TRUE;
     m3u = hls_m3u8_create(0, 3);
-    printf("create m3u8 done\n");
+    LOG_DEBUG("create m3u8 done\n");
     hls = hls_media_create(HLS_DURATION * 1000, hls_handler, m3u);
-    printf("create hls done\n");
+    LOG_DEBUG("create hls done\n");
     if (hls == NULL || m3u == NULL)
     {
-        printf("config_hls failed!\n");
+        LOG_ERROR("config_hls failed!\n");
         return RK_FAILURE;
     }
     else
     {
-        printf("config_hls success!\n");
+        LOG_DEBUG("config_hls success!\n");
         return RK_SUCCESS;
     }
 }
@@ -363,22 +369,22 @@ void *space_cleanup_thread(void *arg)
         get_disk_size("/mnt/sdcard", NULL, &free_size, NULL);
         if (free_size > DISK_SPACE_THRESHOLD)
         {
-            //printf("Free disk space is enough, no need to clean up.\n");
+            LOG_DEBUG("Free disk space is enough, no need to clean up.\n");
             continue;
         }
         // start to free disk space
-        printf("Free disk space...\n");
+        LOG_INFO("Free disk space...\n");
         // get the earliest date
         ret_flag = db_get_earliest_date(target_date);
         if (ret_flag == RK_FAILURE)
         {
-            printf("Failed to fetch the earliest date.\n");
+            LOG_ERROR("Failed to fetch the earliest date.\n");
             continue;
         }
         // do nothing if only one day in record
         if (strcmp(date, target_date) == 0)
         {
-            printf("Only one day, do nothing.\n");
+            LOG_DEBUG("Only one day, do nothing.\n");
             continue;
         }
 
@@ -390,16 +396,16 @@ void *space_cleanup_thread(void *arg)
             ret_flag = system(delete_cmd);
             if (ret_flag == -1)
             {
-                perror("system call failed");
+                LOG_ERROR("system call failed");
             }
             else if (WIFEXITED(ret_flag) && WEXITSTATUS(ret_flag) == 0)
             {
-                printf("%s deleted! \n", target_date);
+                LOG_INFO("%s deleted! \n", target_date);
                 break;
             }
             else
             {
-                printf("fatal: %d\n", WEXITSTATUS(ret_flag));
+                LOG_ERROR("fatal: %d\n", WEXITSTATUS(ret_flag));
             }
         }
         pthread_sigmask(SIG_SETMASK, &oldset, NULL);
@@ -444,7 +450,7 @@ int count_subdirectories(const char *dir_path)
 
     if ((dir = opendir(dir_path)) == NULL)
     {
-        perror("cannot open directory");
+        LOG_ERROR("cannot open directory");
         return -1;
     }
 
