@@ -57,6 +57,7 @@ extern "C" {
 #include <unistd.h>
 #include "version.h"
 #include "rk_type.h"
+#include "log.h"
 
 #define DATE_STRING_LENGTH 11
 

@@ -14,6 +14,11 @@
 
 #include <web_server.h>
 
+#ifdef LOG_TAG
+#undef LOG_TAG
+#endif
+#define LOG_TAG "web_server.c"
+
 static struct mg_mgr mgr;
 static int web_server_run_ = 1;
 static const char *w_server_root = "/mnt/sdcard/MotionSense/www/html";  // web server root
@@ -264,7 +269,7 @@ static void *web_server_run(void *arg)
     {
         mg_mgr_poll(&mgr, 30);
     }
-    printf("web_server_run exit\n");
+    LOG_INFO("web_server_run exit\n");
     mg_mgr_free(&mgr);
     return 0;
 }
@@ -272,20 +277,21 @@ static void *web_server_run(void *arg)
 // web server init
 int web_server_init()
 {
-    printf("web_server_init\n");
+    PRINT_LINE();
+    LOG_INFO("web_server_init start\n");
     system("ifconfig eth0 192.168.1.1 netmask 255.255.255.0");
     system("route add default gw 192.168.1.1 eth0");
     mg_mgr_init(&mgr);
-    printf("mg_mgr_init done\n");
+    LOG_INFO("mg_mgr_init done\n");
     mg_http_listen(&mgr, "http://0.0.0.0:80", web_handler, NULL); // web_handler
-    printf("mg_http_listen done\n");
+    LOG_INFO("mg_http_listen done\n");
     mg_timer_add(&mgr, 50, MG_TIMER_REPEAT, timer_callback, &mgr);
     if (pthread_create(&web_server_thr, NULL, web_server_run, NULL) != 0)
     {
-        printf("web_server_init failed\n");
+        LOG_ERROR("web_server_init failed\n");
         return RK_FAILURE;
     }
-    printf("web_server_init done\n");
+    LOG_INFO("web_server_init done\n");
     return RK_SUCCESS;
 }
 
@@ -293,7 +299,6 @@ int web_server_init()
 void web_server_deinit()
 {
     web_server_run_ = 0;
-    sleep(1);
     pthread_join(web_server_thr, NULL);
     mg_mgr_free(&mgr);
 }
