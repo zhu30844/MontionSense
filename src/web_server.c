@@ -155,8 +155,63 @@ static void video_segments_handler(struct mg_connection *c, int ev, void *ev_dat
 // TODO get motion points in JSON format
 static void motion_points_handler(struct mg_connection *c, int ev, void *ev_data)
 {
-
-    mg_http_reply(c, 200, "Content-Type: application/json", "{\"motion_points\": []}");
+    if (ev == MG_EV_HTTP_MSG)
+    {
+        struct mg_http_message *hm = (struct mg_http_message *)ev_data;
+        struct mg_str query = hm->query;
+        
+        // Parse date parameter from query string
+        char date[32] = {0};
+        char date_value[32] = {0};
+        
+        if (query.len > 0)
+        {
+            if (mg_http_get_var(&query, "date", date_value, sizeof(date_value)) > 0)
+            {
+                strncpy(date, date_value, sizeof(date) - 1);
+                date[sizeof(date) - 1] = '\0';
+            }
+        }
+        
+        // If no date provided, use today's date
+        if (strlen(date) == 0)
+        {
+            time_t now;
+            struct tm *timeinfo;
+            time(&now);
+            timeinfo = localtime(&now);
+            strftime(date, sizeof(date), "%Y-%m-%d", timeinfo);
+        }
+        
+        // Get motion points data
+        char *json_array_str = get_all_motion_points_json(date);
+        if (json_array_str == NULL)
+        {
+            mg_http_reply(c, 500, "Content-Type: application/json\r\n",
+                          "{\"status\":\"error\",\"message\":\"Failed to retrieve motion points data\"}");
+            return;
+        }
+        
+        // Construct response
+        const char *response_format = "{ \"motion_points\": %s }";
+        size_t response_size = strlen(response_format) + strlen(json_array_str) + 1;
+        char *response = malloc(response_size);
+        
+        if (response == NULL)
+        {
+            mg_http_reply(c, 500, "Content-Type: application/json\r\n",
+                          "{\"status\":\"error\",\"message\":\"Memory allocation failed\"}");
+            free(json_array_str);
+            return;
+        }
+        
+        snprintf(response, response_size, response_format, json_array_str);
+        
+        mg_http_reply(c, 200, "Content-Type: application/json\r\n", "%s", response);
+        
+        free(response);
+        free(json_array_str);
+    }
 }
 
 // api handler
