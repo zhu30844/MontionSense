@@ -1,32 +1,257 @@
+/* Playback Container */
+.playback-container {
+    background: white;
+    border-radius: 16px;
+    padding: 2rem;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+}
+
+.playback-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.playback-header h2 {
+    color: #333;
+    font-size: 1.8rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.date-selector {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.date-input {
+    padding: 0.75rem 1rem;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: border-color 0.3s ease;
+    background: white;
+}
+
+.date-input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* Video Container */
+.video-container {
+    margin-bottom: 2rem;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* Video.js Customization */
 .video-js {
     width: 100%;
-    height: 600px;
-
+    height: auto;
+    aspect-ratio: 16/9;
 }
 
+.video-js .vjs-control-bar {
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.6));
+    backdrop-filter: blur(10px);
+}
 
-#video-segments-table {
+.video-js .vjs-progress-control {
+    position: relative;
+}
+
+/* Motion Markers */
+.motion-markers {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.motion-marker {
+    position: absolute;
+    width: 4px;
+    height: 100%;
+    background: #ff4444;
+    border-radius: 2px;
+    box-shadow: 0 0 4px rgba(255, 68, 68, 0.6);
+    pointer-events: auto;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.motion-marker:hover {
+    width: 6px;
+    background: #ff6666;
+    box-shadow: 0 0 8px rgba(255, 68, 68, 0.8);
+}
+
+/* Segments Container */
+.segments-container {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 1.5rem;
+    border: 1px solid #e9ecef;
+}
+
+.segments-container h3 {
+    color: #333;
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.segments-container h3::before {
+    content: '\f03d';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    color: #667eea;
+}
+
+/* Segments Table */
+.segments-table {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 20px;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 }
 
-#video-segments-table th, #video-segments-table td {
-    border: 1px solid #ddd;
-    padding: 8px;
+.segments-table th {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1rem;
     text-align: left;
+    font-weight: 600;
+    font-size: 0.9rem;
 }
 
-#video-segments-table tr:nth-child(even) {
-    background-color: #f9f9f9;
+.segments-table td {
+    padding: 1rem;
+    border-bottom: 1px solid #e9ecef;
+    font-size: 0.9rem;
 }
 
-#video-segments-table tr:hover {
-    background-color: #f1f1f1;
+.segments-table tbody tr {
+    transition: all 0.3s ease;
+    cursor: pointer;
 }
 
-/* 高亮当前播放的行 */
-#video-segments-table tr.highlight {
-    background-color: #d0e4fe;
+.segments-table tbody tr:hover {
+    background: #f8f9fa;
+    transform: translateX(4px);
+}
+
+.segments-table tbody tr.highlight {
+    background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+    border-left: 4px solid #2196f3;
+}
+
+.segments-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* No Segments */
+.no-segments {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #666;
+}
+
+.no-segments i {
+    font-size: 3rem;
+    color: #ccc;
+    margin-bottom: 1rem;
+}
+
+.no-segments p {
+    font-size: 1.1rem;
+    margin: 0;
+}
+
+/* Loading States */
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .playback-container {
+        padding: 1rem;
+    }
+    
+    .playback-header {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
+    
+    .date-selector {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .segments-table {
+        font-size: 0.8rem;
+    }
+    
+    .segments-table th,
+    .segments-table td {
+        padding: 0.75rem 0.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .date-selector {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .date-input {
+        width: 100%;
+    }
+    
+    .segments-table {
+        font-size: 0.75rem;
+    }
+    
+    .segments-table th,
+    .segments-table td {
+        padding: 0.5rem 0.25rem;
+    }
+}
+
+/* Video.js Responsive */
+@media (max-width: 768px) {
+    .video-js .vjs-control-bar {
+        font-size: 0.8rem;
+    }
+    
+    .video-js .vjs-progress-control {
+        height: 8px;
+    }
+    
+    .motion-marker {
+        width: 3px;
+    }
+    
+    .motion-marker:hover {
+        width: 4px;
+    }
 }
 
