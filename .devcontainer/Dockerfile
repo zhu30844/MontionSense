@@ -24,7 +24,7 @@ RUN apt-get update && \
         passwd openssl \
         openssh-server openssh-client \
         vim file cpio rsync wget patch\
-        usbutils adb sudo ca-certificates && \
+        usbutils adb sudo ca-certificates curl&& \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
