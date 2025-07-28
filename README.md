@@ -2,6 +2,13 @@
 
 ## Project Update Log
 
++ ver 0.0.2
+
+1. **Enhanced Logging System**: Integrated RK-style logging framework for better debugging and system monitoring
+2. **Integrated Toolchain**: Streamlined build process with integrated cross-compilation toolchain in development container
+3. **Redesigned Web Interface**: Rewrite of the web frontend with improved user experience and modern UI components
+
+
 + ver 0.0.1
 
 1. First version, "Bobtail Lizard".
