@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MotionSense - Video Playback</title>
+    
+    <!-- Video.js CSS -->
+    <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/playback.css">
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .playback-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            overflow: hidden;
+        }
+        
+        .playback-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .playback-header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 300;
+        }
+        
+        .close-button {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .close-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        .playback-content {
+            padding: 30px;
+        }
+        
+        .date-selector {
+            margin-bottom: 30px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .date-input {
+            padding: 12px 20px;
+            border: 2px solid #e1e5e9;
+            border-radius: 25px;
+            font-size: 16px;
+            background: white;
+            transition: all 0.3s ease;
+        }
+        
+        .date-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .load-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .load-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .load-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .video-section {
+            margin-bottom: 30px;
+        }
+        
+        .video-container {
+            position: relative;
+            background: #000;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        .video-js {
+            width: 100%;
+            height: auto;
+            aspect-ratio: 16/9;
+        }
+        
+        .segments-section {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .segments-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        .segments-table th,
+        .segments-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e1e5e9;
+        }
+        
+        .segments-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .segments-table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .segments-table tr.highlighted {
+            background: #e3f2fd;
+        }
+        
+        .play-segment {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .play-segment:hover {
+            background: #5a6fd8;
+            transform: translateY(-1px);
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+        
+        .error {
+            text-align: center;
+            padding: 40px;
+            color: #dc3545;
+        }
+        
+        @media (max-width: 768px) {
+            .playback-content {
+                padding: 20px;
+            }
+            
+            .date-selector {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .playback-header {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="playback-container">
+        <div class="playback-header">
+            <h1><i class="fas fa-play-circle"></i> Video Playback</h1>
+            <button class="close-button" onclick="window.close()">
+                <i class="fas fa-times"></i>
+                Close Window
+            </button>
+        </div>
+        
+        <div class="playback-content">
+            <div class="date-selector">
+                <input type="date" id="playbackDate" class="date-input">
+                <button id="loadDateBtn" class="load-button">
+                    <i class="fas fa-search"></i> Load Videos
+                </button>
+            </div>
+            
+            <div class="video-section">
+                <div class="video-container">
+                    <video id="my-video" class="video-js vjs-default-skin" controls>
+                        <p class="vjs-no-js">
+                            To view this video please enable JavaScript, and consider upgrading to a
+                            web browser that supports HTML5 video.
+                        </p>
+                    </video>
+                </div>
+            </div>
+            
+            <div class="segments-section">
+                <h3><i class="fas fa-list"></i> Video Segments</h3>
+                <div id="segmentsContainer">
+                    <div class="loading">
+                        <i class="fas fa-spinner fa-spin"></i> Select a date and load videos
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Video.js -->
+    <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script src="js/playback.js"></script>
+    
+    <script>
+        console.log('Playback page script starting...');
+        console.log('Video.js loaded:', typeof videojs !== 'undefined');
+        
+        // Check if PlaybackApp class exists
+        if (typeof PlaybackApp === 'undefined') {
+            console.error('PlaybackApp class not found! Check if playback.js loaded correctly.');
+        } else {
+            console.log('PlaybackApp class found');
+        }
+        
+        // Initialize playback app only once
+        let appInitialized = false;
+        
+        function initializeApp() {
+            if (appInitialized) {
+                console.log('App already initialized, skipping...');
+                return;
+            }
+            
+            console.log('Initializing playback app...');
+            try {
+                window.playbackApp = new PlaybackApp();
+                appInitialized = true;
+                console.log('PlaybackApp initialized successfully');
+            } catch (error) {
+                console.error('Error initializing PlaybackApp:', error);
+            }
+        }
+        
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            console.log('Document still loading, waiting for DOMContentLoaded...');
+            document.addEventListener('DOMContentLoaded', initializeApp);
+        } else {
+            console.log('Document already loaded, initializing immediately...');
+            initializeApp();
+        }
+    </script>
+</body>
+</html> 

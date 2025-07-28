@@ -14,6 +14,11 @@
 
 #include <web_server.h>
 
+#ifdef LOG_TAG
+#undef LOG_TAG
+#endif
+#define LOG_TAG "web_server.c"
+
 static struct mg_mgr mgr;
 static int web_server_run_ = 1;
 static const char *w_server_root = "/mnt/sdcard/MotionSense/www/html";  // web server root
@@ -155,8 +160,63 @@ static void video_segments_handler(struct mg_connection *c, int ev, void *ev_dat
 // TODO get motion points in JSON format
 static void motion_points_handler(struct mg_connection *c, int ev, void *ev_data)
 {
-
-    mg_http_reply(c, 200, "Content-Type: application/json", "{\"motion_points\": []}");
+    if (ev == MG_EV_HTTP_MSG)
+    {
+        struct mg_http_message *hm = (struct mg_http_message *)ev_data;
+        struct mg_str query = hm->query;
+        
+        // Parse date parameter from query string
+        char date[32] = {0};
+        char date_value[32] = {0};
+        
+        if (query.len > 0)
+        {
+            if (mg_http_get_var(&query, "date", date_value, sizeof(date_value)) > 0)
+            {
+                strncpy(date, date_value, sizeof(date) - 1);
+                date[sizeof(date) - 1] = '\0';
+            }
+        }
+        
+        // If no date provided, use today's date
+        if (strlen(date) == 0)
+        {
+            time_t now;
+            struct tm *timeinfo;
+            time(&now);
+            timeinfo = localtime(&now);
+            strftime(date, sizeof(date), "%Y-%m-%d", timeinfo);
+        }
+        
+        // Get motion points data
+        char *json_array_str = get_all_motion_points_json(date);
+        if (json_array_str == NULL)
+        {
+            mg_http_reply(c, 500, "Content-Type: application/json\r\n",
+                          "{\"status\":\"error\",\"message\":\"Failed to retrieve motion points data\"}");
+            return;
+        }
+        
+        // Construct response
+        const char *response_format = "{ \"motion_points\": %s }";
+        size_t response_size = strlen(response_format) + strlen(json_array_str) + 1;
+        char *response = malloc(response_size);
+        
+        if (response == NULL)
+        {
+            mg_http_reply(c, 500, "Content-Type: application/json\r\n",
+                          "{\"status\":\"error\",\"message\":\"Memory allocation failed\"}");
+            free(json_array_str);
+            return;
+        }
+        
+        snprintf(response, response_size, response_format, json_array_str);
+        
+        mg_http_reply(c, 200, "Content-Type: application/json\r\n", "%s", response);
+        
+        free(response);
+        free(json_array_str);
+    }
 }
 
 // api handler
@@ -209,7 +269,7 @@ static void *web_server_run(void *arg)
     {
         mg_mgr_poll(&mgr, 30);
     }
-    printf("web_server_run exit\n");
+    LOG_INFO("web_server_run exit\n");
     mg_mgr_free(&mgr);
     return 0;
 }
@@ -217,20 +277,21 @@ static void *web_server_run(void *arg)
 // web server init
 int web_server_init()
 {
-    printf("web_server_init\n");
+    PRINT_LINE();
+    LOG_INFO("web_server_init start\n");
     system("ifconfig eth0 192.168.1.1 netmask 255.255.255.0");
     system("route add default gw 192.168.1.1 eth0");
     mg_mgr_init(&mgr);
-    printf("mg_mgr_init done\n");
+    LOG_INFO("mg_mgr_init done\n");
     mg_http_listen(&mgr, "http://0.0.0.0:80", web_handler, NULL); // web_handler
-    printf("mg_http_listen done\n");
+    LOG_INFO("mg_http_listen done\n");
     mg_timer_add(&mgr, 50, MG_TIMER_REPEAT, timer_callback, &mgr);
     if (pthread_create(&web_server_thr, NULL, web_server_run, NULL) != 0)
     {
-        printf("web_server_init failed\n");
+        LOG_ERROR("web_server_init failed\n");
         return RK_FAILURE;
     }
-    printf("web_server_init done\n");
+    LOG_INFO("web_server_init done\n");
     return RK_SUCCESS;
 }
 
@@ -238,7 +299,6 @@ int web_server_init()
 void web_server_deinit()
 {
     web_server_run_ = 0;
-    sleep(1);
     pthread_join(web_server_thr, NULL);
     mg_mgr_free(&mgr);
 }
