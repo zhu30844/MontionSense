@@ -113,6 +113,8 @@ int db_get_earliest_date(char *earliest_date);
 char *get_all_video_segments_json(char *date);
 char *get_all_video_segments_json_(Database pEventLogs);
 char *get_all_motion_counts_json();
+char *get_all_motion_points_json(char *date);
+char *get_all_motion_points_json_(Database pEventLogs);
 
 #ifdef __cplusplus
 #if __cplusplus

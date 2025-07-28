@@ -32,6 +32,11 @@
 
 #include "db_comm.h"
 
+#ifdef LOG_TAG
+#undef LOG_TAG
+#endif
+#define LOG_TAG "db.c"
+
 pthread_mutex_t db_init_mutex;
 
 Database video_metadata_db;
@@ -128,7 +133,7 @@ db_result_t db_init(Database *database, const char *db_path)
     // Initialize mutex first
     rc = pthread_mutex_init(&database->mutex, NULL);
     if (rc != 0) {
-        fprintf(stderr, "db_init: Failed to initialize mutex: %s\n", strerror(rc));
+        LOG_ERROR("db_init: Failed to initialize mutex: %s\n", strerror(rc));
         return DB_ERROR_MUTEX_INIT;
     }
     
@@ -137,7 +142,7 @@ db_result_t db_init(Database *database, const char *db_path)
     // Open database connection
     rc = sqlite3_open(db_path, &database->db);
     if (rc != SQLITE_OK) {
-        fprintf(stderr, "Connecting %s failed: %s\n", db_path, sqlite3_errmsg(database->db));
+        LOG_ERROR("Connecting %s failed: %s\n", db_path, sqlite3_errmsg(database->db));
         sqlite3_close(database->db);
         database->db = NULL;
         pthread_mutex_unlock(&database->mutex);
@@ -148,17 +153,17 @@ db_result_t db_init(Database *database, const char *db_path)
     // Configure database for better performance
     char *errMsg = 0;
     if (sqlite3_exec(database->db, "PRAGMA journal_mode=WAL", 0, 0, &errMsg) != SQLITE_OK) {
-        fprintf(stderr, "Failed to set WAL mode: %s\n", errMsg);
+        LOG_ERROR("Failed to set WAL mode: %s\n", errMsg);
         sqlite3_free(errMsg);
     }
     
     if (sqlite3_exec(database->db, "PRAGMA synchronous=NORMAL", 0, 0, &errMsg) != SQLITE_OK) {
-        fprintf(stderr, "Failed to set synchronous mode: %s\n", errMsg);
+        LOG_ERROR("Failed to set synchronous mode: %s\n", errMsg);
         sqlite3_free(errMsg);
     }
     
     if (sqlite3_exec(database->db, "PRAGMA cache_size=1000", 0, 0, &errMsg) != SQLITE_OK) {
-        fprintf(stderr, "Failed to set cache size: %s\n", errMsg);
+        LOG_ERROR("Failed to set cache size: %s\n", errMsg);
         sqlite3_free(errMsg);
     }
 
@@ -206,7 +211,7 @@ int check_table_exists(Database *database, const char *table_name)
 
     if (rc != SQLITE_OK)
     {
-        fprintf(stderr, "SQL error: %s\n", errMsg);
+        LOG_ERROR("SQL error: %s\n", errMsg);
         sqlite3_free(errMsg);
         return -1;
     }
@@ -217,7 +222,7 @@ int check_table_exists(Database *database, const char *table_name)
 // initialize the database EventLogs.db for each day 
 void event_logs_db_init(const char *dated_video_path)
 {
-    printf("event_logs_db_init\n");
+    LOG_INFO("event_logs_db_init\n");
     pthread_mutex_lock(&db_init_mutex);
     char db_path[64];
     snprintf(db_path, sizeof(db_path), "%sEventLogs.db", dated_video_path);
@@ -272,7 +277,7 @@ void databases_deinit()
 {
     db_close(&video_metadata_db);
     db_close(&event_logs_db);
-    printf("Databases deinitialized.\n");
+    LOG_INFO("Databases deinitialized.\n");
 }
 
 // deinitialize the database EventLogs.db
@@ -293,9 +298,7 @@ db_result_t addVideoMetadata(const char *date, int motion_count)
     DB_CHECK_NULL(date);
     DB_CHECK_INIT(&video_metadata_db);
     
-    printf("addVideoMetadata\n");
-    printf("date: %s\n", date);
-    printf("motion_count: %d\n", motion_count);
+    LOG_DEBUG("addVideoMetadata date: %s, motion_count: %d\n", date, motion_count);
     
     pthread_mutex_lock(&video_metadata_db.mutex);
     
@@ -305,22 +308,22 @@ db_result_t addVideoMetadata(const char *date, int motion_count)
     
     if (sqlite3_prepare_v2(video_metadata_db.db, sql, -1, &stmt, NULL) == SQLITE_OK) {
         if (sqlite3_bind_text(stmt, 1, date, -1, SQLITE_STATIC) != SQLITE_OK) {
-            fprintf(stderr, "addVideoMetadata: Failed to bind date: %s\n", 
+            LOG_ERROR("addVideoMetadata: Failed to bind date: %s\n", 
                     sqlite3_errmsg(video_metadata_db.db));
             result = DB_ERROR_SQL_BIND;
         } else if (sqlite3_bind_int(stmt, 2, motion_count) != SQLITE_OK) {
-            fprintf(stderr, "addVideoMetadata: Failed to bind motion_count: %s\n", 
+            LOG_ERROR("addVideoMetadata: Failed to bind motion_count: %s\n", 
                     sqlite3_errmsg(video_metadata_db.db));
             result = DB_ERROR_SQL_BIND;
         } else if (sqlite3_step(stmt) != SQLITE_DONE) {
-            fprintf(stderr, "addVideoMetadata: Failed to insert data: %s\n", 
+            LOG_ERROR("addVideoMetadata: Failed to insert data: %s\n", 
                     sqlite3_errmsg(video_metadata_db.db));
             result = DB_ERROR_SQL_STEP;
         }
         
         sqlite3_finalize(stmt);
     } else {
-        fprintf(stderr, "addVideoMetadata: Failed to prepare statement: %s\n", 
+        LOG_ERROR("addVideoMetadata: Failed to prepare statement: %s\n", 
                 sqlite3_errmsg(video_metadata_db.db));
         result = DB_ERROR_SQL_PREPARE;
     }
@@ -343,7 +346,7 @@ db_result_t update_motion_time_db(const char *date, int new_motion_count)
 
     if (sqlite3_prepare_v2(video_metadata_db.db, sql_check, -1, &stmt_check, NULL) == SQLITE_OK) {
         if (sqlite3_bind_text(stmt_check, 1, date, -1, SQLITE_STATIC) != SQLITE_OK) {
-            fprintf(stderr, "update_motion_time_db: Failed to bind date: %s\n", 
+            LOG_ERROR("update_motion_time_db: Failed to bind date: %s\n", 
                     sqlite3_errmsg(video_metadata_db.db));
             result = DB_ERROR_SQL_BIND;
         } else if (sqlite3_step(stmt_check) == SQLITE_ROW && sqlite3_column_int(stmt_check, 0) == 0) {
@@ -353,22 +356,22 @@ db_result_t update_motion_time_db(const char *date, int new_motion_count)
 
             if (sqlite3_prepare_v2(video_metadata_db.db, sql_insert, -1, &stmt_insert, NULL) == SQLITE_OK) {
                 if (sqlite3_bind_text(stmt_insert, 1, date, -1, SQLITE_STATIC) != SQLITE_OK) {
-                    fprintf(stderr, "update_motion_time_db: Failed to bind date for insert: %s\n", 
+                    LOG_ERROR("update_motion_time_db: Failed to bind date for insert: %s\n", 
                             sqlite3_errmsg(video_metadata_db.db));
                     result = DB_ERROR_SQL_BIND;
                 } else if (sqlite3_bind_int(stmt_insert, 2, new_motion_count) != SQLITE_OK) {
-                    fprintf(stderr, "update_motion_time_db: Failed to bind motion_count for insert: %s\n", 
+                    LOG_ERROR("update_motion_time_db: Failed to bind motion_count for insert: %s\n", 
                             sqlite3_errmsg(video_metadata_db.db));
                     result = DB_ERROR_SQL_BIND;
                 } else if (sqlite3_step(stmt_insert) != SQLITE_DONE) {
-                    fprintf(stderr, "update_motion_time_db: Failed to insert: %s\n", 
+                    LOG_ERROR("update_motion_time_db: Failed to insert: %s\n", 
                             sqlite3_errmsg(video_metadata_db.db));
                     result = DB_ERROR_SQL_STEP;
                 }
                 
                 sqlite3_finalize(stmt_insert);
             } else {
-                fprintf(stderr, "update_motion_time_db: Failed to prepare insert: %s\n", 
+                LOG_ERROR("update_motion_time_db: Failed to prepare insert: %s\n", 
                         sqlite3_errmsg(video_metadata_db.db));
                 result = DB_ERROR_SQL_PREPARE;
             }
@@ -379,22 +382,22 @@ db_result_t update_motion_time_db(const char *date, int new_motion_count)
 
             if (sqlite3_prepare_v2(video_metadata_db.db, sql_update, -1, &stmt_update, NULL) == SQLITE_OK) {
                 if (sqlite3_bind_int(stmt_update, 1, new_motion_count) != SQLITE_OK) {
-                    fprintf(stderr, "update_motion_time_db: Failed to bind motion_count for update: %s\n", 
+                    LOG_ERROR("update_motion_time_db: Failed to bind motion_count for update: %s\n", 
                             sqlite3_errmsg(video_metadata_db.db));
                     result = DB_ERROR_SQL_BIND;
                 } else if (sqlite3_bind_text(stmt_update, 2, date, -1, SQLITE_STATIC) != SQLITE_OK) {
-                    fprintf(stderr, "update_motion_time_db: Failed to bind date for update: %s\n", 
+                    LOG_ERROR("update_motion_time_db: Failed to bind date for update: %s\n", 
                             sqlite3_errmsg(video_metadata_db.db));
                     result = DB_ERROR_SQL_BIND;
                 } else if (sqlite3_step(stmt_update) != SQLITE_DONE) {
-                    fprintf(stderr, "update_motion_time_db: Failed to update: %s\n", 
+                    LOG_ERROR("update_motion_time_db: Failed to update: %s\n", 
                             sqlite3_errmsg(video_metadata_db.db));
                     result = DB_ERROR_SQL_STEP;
                 }
                 
                 sqlite3_finalize(stmt_update);
             } else {
-                fprintf(stderr, "update_motion_time_db: Failed to prepare update: %s\n", 
+                LOG_ERROR("update_motion_time_db: Failed to prepare update: %s\n", 
                         sqlite3_errmsg(video_metadata_db.db));
                 result = DB_ERROR_SQL_PREPARE;
             }
@@ -402,7 +405,7 @@ db_result_t update_motion_time_db(const char *date, int new_motion_count)
 
         sqlite3_finalize(stmt_check);
     } else {
-        fprintf(stderr, "update_motion_time_db: Failed to prepare check: %s\n", 
+        LOG_ERROR("update_motion_time_db: Failed to prepare check: %s\n", 
                 sqlite3_errmsg(video_metadata_db.db));
         result = DB_ERROR_SQL_PREPARE;
     }
@@ -461,7 +464,7 @@ int update_video_Length_db(int id, int new_length)
 db_result_t addEventDetail(int video_id, int motion_time)
 {
     if (video_id < 0) {
-        fprintf(stderr, "addEventDetail: Invalid video_id: %d\n", video_id);
+        LOG_ERROR("addEventDetail: Invalid video_id: %d\n", video_id);
         return DB_ERROR_INVALID_PARAM;
     }
     
@@ -475,22 +478,22 @@ db_result_t addEventDetail(int video_id, int motion_time)
     
     if (sqlite3_prepare_v2(event_logs_db.db, sql, -1, &stmt, NULL) == SQLITE_OK) {
         if (sqlite3_bind_int(stmt, 1, video_id) != SQLITE_OK) {
-            fprintf(stderr, "addEventDetail: Failed to bind video_id: %s\n", 
+            LOG_ERROR("addEventDetail: Failed to bind video_id: %s\n", 
                     sqlite3_errmsg(event_logs_db.db));
             result = DB_ERROR_SQL_BIND;
         } else if (sqlite3_bind_int(stmt, 2, motion_time) != SQLITE_OK) {
-            fprintf(stderr, "addEventDetail: Failed to bind motion_time: %s\n", 
+            LOG_ERROR("addEventDetail: Failed to bind motion_time: %s\n", 
                     sqlite3_errmsg(event_logs_db.db));
             result = DB_ERROR_SQL_BIND;
         } else if (sqlite3_step(stmt) != SQLITE_DONE) {
-            fprintf(stderr, "addEventDetail: Failed to insert data: %s\n", 
+            LOG_ERROR("addEventDetail: Failed to insert data: %s\n", 
                     sqlite3_errmsg(event_logs_db.db));
             result = DB_ERROR_SQL_STEP;
         }
         
         sqlite3_finalize(stmt);
     } else {
-        fprintf(stderr, "addEventDetail: Failed to prepare statement: %s\n", 
+        LOG_ERROR("addEventDetail: Failed to prepare statement: %s\n", 
                 sqlite3_errmsg(event_logs_db.db));
         result = DB_ERROR_SQL_PREPARE;
     }
@@ -522,7 +525,7 @@ int create_table(Database *database, const char *create_sql)
 
     if (rc != SQLITE_OK)
     {
-        fprintf(stderr, "SQL error: %s\n", errMsg);
+        LOG_ERROR("SQL error: %s\n", errMsg);
         sqlite3_free(errMsg);
         return 1;
     }
@@ -530,7 +533,7 @@ int create_table(Database *database, const char *create_sql)
     return 0;
 }
 
-// Get the motion count by date from EventLogs.db.db ---> EventDetails
+// Get the motion count by date from EventLogs.db ---> EventDetails
 int getEventDetailsCount()
 {
     int count = 0;
@@ -547,7 +550,7 @@ int getEventDetailsCount()
     }
     else
     {
-        fprintf(stderr, "Failed to fetch count: %s\n", sqlite3_errmsg(event_logs_db.db));
+        LOG_ERROR("Failed to fetch count: %s\n", sqlite3_errmsg(event_logs_db.db));
     }
     pthread_mutex_unlock(&event_logs_db.mutex);
     return count;
@@ -587,7 +590,7 @@ int db_get_earliest_date(char *earliest_date)
     }
     else
     {
-        fprintf(stderr, "Failed to fetch data: %s\n", sqlite3_errmsg(video_metadata_db.db));
+        LOG_ERROR("Failed to fetch data: %s\n", sqlite3_errmsg(video_metadata_db.db));
         strncpy(earliest_date, "NULL", sizeof("1970-01-01"));
         earliest_date[sizeof("NULL") - 1] = '\0';
         result = RK_FAILURE;
@@ -608,18 +611,18 @@ int db_delete_record_date(const char *date)
         sqlite3_bind_text(stmt, 1, date, -1, SQLITE_STATIC);
         if (sqlite3_step(stmt) != SQLITE_DONE)
         {
-            fprintf(stderr, "Failed to delete record: %s\n", sqlite3_errmsg(video_metadata_db.db));
+            LOG_ERROR("Failed to delete record: %s\n", sqlite3_errmsg(video_metadata_db.db));
             result = RK_FAILURE;
         }
         else
         {
-            printf("Record with date %s deleted successfully.\n", date);
+            LOG_INFO("Record with date %s deleted successfully.\n", date);
         }
         sqlite3_finalize(stmt);
     }
     else
     {
-        fprintf(stderr, "Failed to prepare statement: %s\n", sqlite3_errmsg(video_metadata_db.db));
+        LOG_ERROR("Failed to prepare statement: %s\n", sqlite3_errmsg(video_metadata_db.db));
         result = RK_FAILURE;
     }
     pthread_mutex_unlock(&video_metadata_db.mutex);
@@ -637,7 +640,7 @@ char *get_all_motion_counts_json()
     int rc = sqlite3_prepare_v2(video_metadata_db.db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK)
     {
-        fprintf(stderr, "Failed to prepare statement: %s\n", sqlite3_errmsg(video_metadata_db.db));
+        LOG_ERROR("Failed to prepare statement: %s\n", sqlite3_errmsg(video_metadata_db.db));
         pthread_mutex_unlock(&video_metadata_db.mutex);
         return NULL;
     }
@@ -656,7 +659,7 @@ char *get_all_motion_counts_json()
     }
     else
     {
-        fprintf(stderr, "Failed to retrieve data: %s\n", sqlite3_errmsg(video_metadata_db.db));
+        LOG_ERROR("Failed to retrieve data: %s\n", sqlite3_errmsg(video_metadata_db.db));
     }
 
     sqlite3_finalize(stmt);
@@ -705,7 +708,7 @@ char *get_all_video_segments_json_(Database pEventLogs)
     int rc = sqlite3_prepare_v2(pEventLogs.db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK)
     {
-        fprintf(stderr, "Failed to prepare statement: %s\n", sqlite3_errmsg(pEventLogs.db));
+        LOG_ERROR("Failed to prepare statement: %s\n", sqlite3_errmsg(pEventLogs.db));
         pthread_mutex_unlock(&pEventLogs.mutex);
         return NULL;
     }
@@ -723,8 +726,94 @@ char *get_all_video_segments_json_(Database pEventLogs)
     }
     else
     {
-        fprintf(stderr, "Failed to retrieve data: %s\n", sqlite3_errmsg(pEventLogs.db));
+        LOG_ERROR("Failed to retrieve data: %s\n", sqlite3_errmsg(pEventLogs.db));
     }
+    sqlite3_finalize(stmt);
+    pthread_mutex_unlock(&pEventLogs.mutex);
+    return json_result;
+}
+
+// Get all motion points in JSON format by date
+char *get_all_motion_points_json(char *date)
+{
+    char *json_result = NULL;
+    // check if the date is today
+    time_t now;
+    struct tm *timeinfo;
+    char date_string[DATE_STRING_LENGTH];
+    time(&now);
+    timeinfo = localtime(&now);
+    strftime(date_string, DATE_STRING_LENGTH, "%Y-%m-%d", timeinfo);
+    if (strcmp(date, date_string) != 0)
+    {
+        // create new database connection for previous date
+        char previous_db_path[64] = {0};
+        snprintf(previous_db_path, sizeof(previous_db_path), "/mnt/sdcard/DCIM/%s/EventLogs.db", date);
+        Database previous_event_logs_db;
+        db_init(&previous_event_logs_db, previous_db_path);
+        json_result = get_all_motion_points_json_(previous_event_logs_db);
+        db_close(&previous_event_logs_db);
+    }
+    else
+    {
+        // use the existing database connection
+        json_result = get_all_motion_points_json_(event_logs_db);
+    }
+
+    return json_result;
+}
+
+// Get all motion points in JSON format by database pointer
+char *get_all_motion_points_json_(Database pEventLogs)
+{
+    // First check if EventDetails table has data
+    const char *check_sql = "SELECT COUNT(*) FROM EventDetails;";
+    int count = 0;
+    sqlite3_stmt *check_stmt;
+    
+    pthread_mutex_lock(&pEventLogs.mutex);
+    int rc = sqlite3_prepare_v2(pEventLogs.db, check_sql, -1, &check_stmt, NULL);
+    if (rc == SQLITE_OK && sqlite3_step(check_stmt) == SQLITE_ROW) {
+        count = sqlite3_column_int(check_stmt, 0);
+    }
+    sqlite3_finalize(check_stmt);
+    
+    if (count == 0) {
+        pthread_mutex_unlock(&pEventLogs.mutex);
+        return strdup("[]");
+    }
+    
+    // Join EventDetails with VideoSegments to get folder information
+    const char *sql = "SELECT json_group_array(json_object('video_id', ed.video_id, 'motion_time', ed.motion_time, 'folder', COALESCE(vs.folder, 'unknown'))) FROM EventDetails ed LEFT JOIN VideoSegments vs ON ed.video_id = vs.id;";
+    char *json_result = NULL;
+    sqlite3_stmt *stmt;
+    
+    rc = sqlite3_prepare_v2(pEventLogs.db, sql, -1, &stmt, NULL);
+    if (rc != SQLITE_OK)
+    {
+        fprintf(stderr, "Failed to prepare motion points statement: %s\n", sqlite3_errmsg(pEventLogs.db));
+        pthread_mutex_unlock(&pEventLogs.mutex);
+        return strdup("[]");
+    }
+    
+    if (sqlite3_step(stmt) == SQLITE_ROW)
+    {
+        const unsigned char *json_text = sqlite3_column_text(stmt, 0);
+        if (json_text)
+        {
+            json_result = strdup((const char *)json_text);
+        }
+        else
+        {
+            json_result = strdup("[]"); // Return empty array if no data
+        }
+    }
+    else
+    {
+        fprintf(stderr, "Failed to retrieve motion points data: %s\n", sqlite3_errmsg(pEventLogs.db));
+        json_result = strdup("[]");
+    }
+    
     sqlite3_finalize(stmt);
     pthread_mutex_unlock(&pEventLogs.mutex);
     return json_result;
