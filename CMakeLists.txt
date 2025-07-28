@@ -1,13 +1,8 @@
 cmake_minimum_required(VERSION 3.10)
 # Configure the compiler
-set(SDK_PATH $ENV{LUCKFOX_SDK_PATH})
-if(NOT SDK_PATH)
-    message(FATAL_ERROR "Please Set Luckfox-pico SDK Path. Such as:export LUCKFOX_SDK_PATH=/home/user/luckfox-pico")
-    return()
-endif()
-set(CMAKE_C_COMPILER "${SDK_PATH}/tools/linux/toolchain/arm-rockchip830-linux-uclibcgnueabihf/bin/arm-rockchip830-linux-uclibcgnueabihf-gcc"
+set(CMAKE_C_COMPILER "${CMAKE_CURRENT_SOURCE_DIR}/tools/linux/toolchain/arm-rockchip830-linux-uclibcgnueabihf/bin/arm-rockchip830-linux-uclibcgnueabihf-gcc"
 )
-set(CMAKE_CXX_COMPILER "${SDK_PATH}/tools/linux/toolchain/arm-rockchip830-linux-uclibcgnueabihf/bin/arm-rockchip830-linux-uclibcgnueabihf-g++"
+set(CMAKE_CXX_COMPILER "${CMAKE_CURRENT_SOURCE_DIR}/tools/linux/toolchain/arm-rockchip830-linux-uclibcgnueabihf/bin/arm-rockchip830-linux-uclibcgnueabihf-g++"
 )
 
 # Display the compiler information
@@ -23,13 +18,6 @@ add_compile_options(-g -Wall
                     -DUAPI2  -DMG_ENABLE_DIRLIST=0
                     -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 
                     )
-# -DROCKIVA 
-#set(CMAKE_PREFIX_PATH "${BUILDROOT_PATH}/usr")
-#include_directories("${BUILDROOT_PATH}/usr/include")
-#link_directories("${BUILDROOT_PATH}/usr/lib")
-#set(CMAKE_BUILD_RPATH "${BUILDROOT_PATH}/usr/lib")
-#set(CMAKE_INSTALL_RPATH "${BUILDROOT_PATH}/usr/lib")
-#set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 
 # Set the library directory
