@@ -19,13 +19,5 @@
     "runArgs": ["--privileged",
                 "-v","/dev:/dev",
                 "-v", "/etc/localtime:/etc/localtime:ro"
-            ],
-    "containerEnv": {
-        "SDK_PATH": "/workspaces/luckfox-pico",
-        "LUCKFOX_SDK_PATH": "/workspaces/luckfox-pico",
-        "BUILDROOT_PATH": "/workspaces/luckfox-pico/sysdrv/source/buildroot/buildroot-2023.02.6/output/host/arm-buildroot-linux-uclibcgnueabihf/sysroot",
-        "LUCKFOX_INCLUDE_PATH": "/workspaces/luckfox-pico/sysdrv/source/buildroot/buildroot-2023.02.6/output/host/arm-buildroot-linux-uclibcgnueabihf/sysroot/usr/include",
-        "LUCKFOX_LIB_PATH": "/workspaces/luckfox-pico/sysdrv/source/buildroot/buildroot-2023.02.6/output/host/arm-buildroot-linux-uclibcgnueabihf/sysroot/usr/lib"
-    },
-    "postCreateCommand": "echo 'export PATH=/workspaces/luckfox-pico/tools/linux/toolchain/arm-rockchip830-linux-uclibcgnueabihf/bin:$PATH' >> ~/.bashrc && . ~/.bashrc"
+            ]
 }

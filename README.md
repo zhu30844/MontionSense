@@ -27,23 +27,80 @@
 + **Tested and verified on Luckfox Pico Pro Max**
 + **SD card requirements: ext4 filesystem, minimum 4GB storage**
 + **Mount point `/mnt/sdcard` must be available before running MotionSense**
++ **RKIPC must be installed in default**
 
+## Installation
 
-## Installation 
+### Prerequisites
 
-+ **Make sure your host machine is running x86-64 linux desktop and VScode is installed**
-+ **Clone Luckfox SDK**
-+ **Clone this repo inside the SDK folder**
-+ **Copy the *.devcontainer* folder to the root of SDK**
-+ **Open the SDK folder with VS Code and reopen the folder with the plugin *devcontainer***
-+ **Switch to the project folder and run *build.sh***
-+ **You can run the build.sh with the argument *clean* or *run (Pushes the binary file to the board via ADB)***
-+ For more information about cross-compiling and environment set-up, please refer to the Luckfox wiki
++ **Host machine: x86-64 Linux desktop with VS Code installed**
++ **USB connection to Luckfox Pico board**
+
+### Development Environment Setup
+
+1. **Clone this repository:**
+   ```bash
+   git clone https://github.com/zhu30844/MontionSense.git
+   cd MontionSense
+   ```
+
+2. **Open with VS Code Dev Container:**
+   - Open the project folder in VS Code
+   - When prompted, click "Reopen in Container" or use the command palette (Ctrl+Shift+P) and select "Dev Containers: Reopen in Container"
+   - The development container includes all necessary build tools and cross-compilation environment
+
+3. **Build the project:**
+   ```bash
+   ./build.sh
+   ```
+
+### Build Options
+
+The `build.sh` script supports the following arguments:
+
++ **`./build.sh`** - Builds the project and deploys to the connected board
++ **`./build.sh clean`** - Cleans build artifacts and install directories
++ **`./build.sh run`** - Builds and pushes the binary to the board via ADB
+
+### Deployment
+
+1. **Connect your Luckfox Pico board via USB**
+2. **Ensure ADB is connected:**
+   ```bash
+   adb devices
+   ```
+3. **Run the build script:**
+   ```bash
+   ./build.sh
+   ```
+4. **The script will automatically:**
+   - Build the project using CMake
+   - Push the compiled binary to `/mnt/sdcard/MotionSense/`
+   - Push web assets to the board
+   - Set executable permissions
+   - Launch the application
+
+### Manual Deployment (if needed)
+
+If you need to manually deploy the application:
+
+```bash
+# Build the project
+mkdir -p build && cd build
+cmake .. && make install
+
+# Deploy to board
+adb push install/MotionSense /mnt/sdcard/
+adb push www /mnt/sdcard/MotionSense/
+adb shell chmod +x /mnt/sdcard/MotionSense/MotionSense
+
+# Run the application
+adb shell ./mnt/sdcard/MotionSense/MotionSense
+```
 
 ## Dependencies
 
-+ All dependencies are either compiled into libraries in the *lib* folder or included in the Luckfox SDK.
-
++ All dependencies are either compiled into libraries in the *lib* folder or included in the integrated toolchain.
 
 ## Future Plans
 
