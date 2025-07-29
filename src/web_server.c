@@ -21,16 +21,95 @@
 
 static struct mg_mgr mgr;
 static int web_server_run_ = 1;
-static const char *w_server_root = "/mnt/sdcard/MotionSense/www/html";  // web server root
-static const char *w_general_api = "/api/*";                          // general api, apientry point
-static const char *w_streamer_api = "/api/stream";                    // streamer api, jpg stream
-static const char *w_get_motion_count_api = "/api/motion_counts";     // get motion count api, to draw heatmap
-static const char *w_get_video_segments_api = "/api/video_segments*"; // get video segments api, get list for one day's video segments
-static const char *w_get_motion_points_api = "/api/motion_points";    // get motion points api, get list of motion points
-static const char *w_db_forbidden = "/hls/*.db*";                     // db forbidden api
-static const char *DCIM_dir = "/mnt/sdcard/DCIM";                     // DCIM dir
+static const char *w_server_root = "/mnt/sdcard/MotionSense/www/html";          // web server root
+static const char *w_DCIM_entrance = "/mnt/sdcard/MotionSense/www/html/hls";    // DCIM entrance
+static const char *w_general_api = "/api/*";                                    // general api, apientry point
+static const char *w_streamer_api = "/api/stream";                              // streamer api, jpg stream
+static const char *w_get_motion_count_api = "/api/motion_counts";               // get motion count api, to draw heatmap
+static const char *w_get_video_segments_api = "/api/video_segments*";           // get video segments api, get list for one day's video segments
+static const char *w_get_motion_points_api = "/api/motion_points";              // get motion points api, get list of motion points
+static const char *w_db_forbidden = "/hls/*.db*";                               // db forbidden api
+static const char *DCIM_dir = "/mnt/sdcard/DCIM";                               // DCIM dir
+static const char *w_ifname = "eth0";                                           // network interface name
+static const char *w_ip_addr = "192.168.1.1";                                   // IP address
+static const char *w_netmask = "255.255.255.0";                                 // netmask
 pthread_t web_server_thr;
 static image_addr_t *image_addr;
+
+static int hls_checker()
+{
+    struct stat st;
+    char link_target[256];
+    ssize_t len;
+
+    // check hls symlink
+    if (lstat(w_DCIM_entrance, &st) == 0) {
+        if (S_ISLNK(st.st_mode)) {
+            // if it is a symlink, check if it points to the correct DCIM directory
+            len = readlink(w_DCIM_entrance, link_target, sizeof(link_target) - 1);
+            if (len == -1) {
+                LOG_ERROR("Failed to read symlink: %s\n", strerror(errno));
+                return HLS_SYMLINK_NOT_VALID;
+            }
+            link_target[len] = '\0';
+
+            if (strcmp(link_target, DCIM_dir) == 0) {
+                LOG_INFO("HLS symlink is valid, points to: %s\n", link_target);
+                return HLS_SYMLINK_VALID;
+            }
+
+            LOG_INFO("HLS symlink is incorrect, points to: %s, expected: %s\n", link_target, DCIM_dir);
+            if (unlink(w_DCIM_entrance) != 0) {
+                LOG_ERROR("Failed to remove invalid symlink: %s\n", strerror(errno));
+                return HLS_SYMLINK_NOT_VALID;
+            }
+            LOG_INFO("Removed invalid symlink, creating new one...\n");
+        } else {
+            // if it exists but is not a symlink, remove it
+            LOG_INFO("HLS path exists but is not a symlink, removing...\n");
+            if (unlink(w_DCIM_entrance) != 0) {
+                LOG_ERROR("Failed to remove non-symlink file: %s\n", strerror(errno));
+                return HLS_SYMLINK_NOT_VALID;
+            }
+        }
+    } else {
+        // lstat failed, check if the directory exists
+        LOG_INFO("HLS symlink does not exist, creating...\n");
+    }
+
+    // create a new symlink
+    if (symlink(DCIM_dir, w_DCIM_entrance) == 0) {
+        LOG_INFO("HLS symlink created successfully\n");
+        return HLS_SYMLINK_VALID;
+    } else {
+        LOG_ERROR("Failed to create symlink: %s\n", strerror(errno));
+        return HLS_SYMLINK_NOT_VALID;
+    }
+}
+
+int set_ip_address(const char *ifname, const char *ip_addr, const char *netmask)
+{
+    int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    struct ifreq ifr;
+    struct sockaddr_in *addr;
+
+    if (sockfd < 0) return -1;
+
+    strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
+
+
+    addr = (struct sockaddr_in *)&ifr.ifr_addr;
+    addr->sin_family = AF_INET;
+    inet_pton(AF_INET, ip_addr, &addr->sin_addr);
+    if (ioctl(sockfd, SIOCSIFADDR, &ifr) < 0) return -1;
+
+
+    inet_pton(AF_INET, netmask, &addr->sin_addr);
+    if (ioctl(sockfd, SIOCSIFNETMASK, &ifr) < 0) return -1;
+
+    close(sockfd);
+    return 0;
+}
 
 // streamer
 static void streamer_handler(struct mg_connection *c, int ev, void *ev_data)
@@ -279,8 +358,13 @@ int web_server_init()
 {
     PRINT_LINE();
     LOG_INFO("web_server_init start\n");
-    system("ifconfig eth0 192.168.1.1 netmask 255.255.255.0");
-    system("route add default gw 192.168.1.1 eth0");
+    set_ip_address(w_ifname, w_ip_addr, w_netmask);
+    if (hls_checker() != HLS_SYMLINK_VALID)
+    {
+        LOG_ERROR("HLS symlink check failed\n");
+        return RK_FAILURE;
+    }
+
     mg_mgr_init(&mgr);
     LOG_INFO("mg_mgr_init done\n");
     mg_http_listen(&mgr, "http://0.0.0.0:80", web_handler, NULL); // web_handler

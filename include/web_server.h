@@ -25,6 +25,16 @@
 #include "mongoose.h"
 #include "db_comm.h"
 #include "image_contx.h"
+#include <sys/ioctl.h>
+#include <net/if.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+
+#define DCIM_DIR_VALID 0
+#define DCIM_DIR_NOT_VALID -1
+#define HLS_SYMLINK_VALID 1
+#define HLS_SYMLINK_NOT_VALID -2
 
 int web_server_init();
 void web_server_deinit();
