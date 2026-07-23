@@ -1,0 +1,46 @@
+#!/bin/sh
+
+BIN_DIR="/oem/usr/bin"
+LIB_DIR="/oem/usr/lib"
+DAEMON="$BIN_DIR/MotionSense"
+PIDFILE="/var/run/motionsense.pid"
+LOGFILE="/mnt/sdcard/MotionSense/motionsense.log"
+
+case "$1" in
+    start)
+        # Hand the camera over from the stock rkipc app: this kills rkipc and
+        # blocks until it has fully released the ISP, so we don't race it.
+        [ -x /oem/usr/bin/RkLunch-stop.sh ] && sh /oem/usr/bin/RkLunch-stop.sh
+        if [ ! -d /dev/mpi ]; then
+            cd /oem/usr/ko && sh insmod_ko.sh >/dev/null 2>&1
+        fi
+        # Wait for the sdcard to be mounted (config, recordings and log live there)
+        i=0
+        while ! grep -q " /mnt/sdcard " /proc/mounts; do
+            i=$((i + 1))
+            if [ "$i" -ge 30 ]; then
+                echo "S99motionsense: sdcard not mounted after 30s, aborting" >&2
+                exit 1
+            fi
+            sleep 1
+        done
+        # Ensure our sdcard dir exists: without it the 2>>$LOGFILE redirect below
+        # fails in the shell *before* exec, so MotionSense never starts and logs
+        # nothing (this is what silently broke boot autostart when config was absent).
+        mkdir -p "$(dirname "$LOGFILE")"
+        start-stop-daemon -S -b -m -p "$PIDFILE" -x /bin/sh -- -c "exec env LD_LIBRARY_PATH=$LIB_DIR $DAEMON 2>>$LOGFILE"
+        ;;
+    stop)
+        start-stop-daemon -K -p "$PIDFILE" && rm -f "$PIDFILE"
+        ;;
+    restart)
+        $0 stop; sleep 1; $0 start
+        ;;
+    status)
+        start-stop-daemon -K -t -q -p "$PIDFILE" && echo "running" || echo "stopped"
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart|status}"
+        exit 1
+        ;;
+esac

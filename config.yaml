@@ -1,0 +1,46 @@
+# MotionSense configuration
+# Place this file at /mnt/sdcard/MotionSense/config.yaml
+# Missing keys fall back to compiled-in defaults.
+
+# Pipe 0: H.264 main recording stream
+h264:
+  width: 1920
+  height: 1080
+  fps: 30
+  bitrate_kbps: 4000
+  gop: 60
+
+# Pipe 1: MJPEG live preview stream
+mjpeg:
+  width: 1920
+  height: 1080
+  fps: 15
+  qfactor_max: 80
+  qfactor_min: 65
+
+# Pipe 2: IVS motion detection channel
+ivs:
+  width: 640
+  height: 360
+  fps: 15
+  md_interval: 4        # analyze every N frames
+  md_sensibility: 3     # IVS built-in sensitivity 1-5
+  md_night_mode: true
+  thresh_sad: 40        # SAD threshold
+  thresh_move: 2        # move threshold
+  area_ratio: 0.10      # fraction of frame area to trigger motion
+  poll_ms: 100          # ivs_thread poll interval (ms)
+  fps_low: 1            # recording fps when no motion
+  fps_high: 30          # recording fps when motion detected
+  motion_debounce_ms: 1000  # motion-density sampling interval: 1 point ≈ 1s of motion
+
+osd:
+  font_size: 36
+  margin: 16
+  position: bottom-right  # top-left, top-right, bottom-left, bottom-right
+
+storage:
+  hls_duration_s: 0      # 0 = one .ts per keyframe (segment length follows GOP, ~2s);
+                         # >0 = also require N seconds of media before cutting
+  disk_free_min_mb: 2048
+  cleanup_every_ts: 20

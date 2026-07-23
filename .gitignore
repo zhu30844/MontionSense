@@ -1,0 +1,38 @@
+# ---------------------------------------------------------------------------
+# MotionSense .gitignore
+#
+# NOTE: the cross-toolchain (tools/linux/toolchain), the vendored .so/.a under
+# vendor/, and 3rdparty/ sources are INTENTIONALLY committed (a self-contained
+# SDK build references them directly). Do not ignore them.
+# ---------------------------------------------------------------------------
+
+# --- C / CMake build output ---
+/build/
+/install/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+compile_commands.json
+
+# --- Go agent build output ---
+# Compiled agent binary (build with `go build`; it does not belong in git).
+/agent/agent
+# Go test/coverage artifacts.
+*.test
+*.out
+coverage.txt
+
+# --- IDE / editor ---
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# --- OS cruft ---
+.DS_Store
+Thumbs.db
+
+# --- Logs / local runtime ---
+*.log
