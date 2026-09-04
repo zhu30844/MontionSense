@@ -11,7 +11,15 @@ type DayMetadata struct {
 
 // ListDays returns all recording days, newest first.
 func (s *Storage) ListDays(ctx context.Context) ([]DayMetadata, error) {
-	rows, err := s.db.QueryContext(ctx,
+	db, err := s.conn()
+	if err != nil {
+		if s.absent() {
+			// Nothing recorded yet. An empty calendar is the truth.
+			return []DayMetadata{}, nil
+		}
+		return nil, err
+	}
+	rows, err := db.QueryContext(ctx,
 		`SELECT date, motion_count, state FROM VideoMetadata ORDER BY date DESC`)
 	if err != nil {
 		return nil, err

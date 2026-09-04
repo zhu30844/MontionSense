@@ -65,13 +65,15 @@ func main() {
 		log.Fatalf("embed static: %v", err)
 	}
 
-	// storage (optional at startup: sdcard may not be mounted yet)
+	// storage (optional at startup: the card may not be mounted yet, and on a
+	// fresh one the daemon has not written the database at all). Open always
+	// hands back a usable Storage that connects when the database appears, so
+	// the log line is a note and not a degraded mode.
 	store, err := database.Open(dcimRoot)
 	if err != nil {
-		log.Printf("open database: %v — continuing without storage", err)
-	} else {
-		defer store.Close()
+		log.Printf("database not ready: %v — will connect when it appears", err)
 	}
+	defer store.Close()
 
 	// stream: C process -> broker -> http clients
 	broker := stream.NewBroker()
