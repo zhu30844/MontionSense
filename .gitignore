@@ -50,3 +50,6 @@ Thumbs.db
 # scripts/sync-vendor.sh from an SDK checkout. Only needed for standalone
 # builds; the SDK app build uses MS_RK_MEDIA_DIR instead.
 /vendor/
+# The CMake glue in there is ours, not Rockchip's, and add_subdirectory needs
+# it present before sync-vendor.sh has run.
+!/vendor/*/CMakeLists.txt

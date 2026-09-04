@@ -63,6 +63,17 @@ endif()
 # Dependencies — Rockchip libs from vendor/ or the SDK, distro libs from the
 # buildroot sysroot, the rest built from source under 3rdparty/.
 # ------------------------------------------------------------------
+# vendor/ holds Rockchip's libraries, which are not in the repository. The
+# CMakeLists in each subdirectory are, so check for something sync-vendor.sh
+# provides rather than letting add_subdirectory fail with a bare "not an
+# existing directory".
+if(NOT MS_RK_MEDIA_DIR AND NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vendor/rockit/lib/librockit.so")
+    message(FATAL_ERROR
+        "vendor/ is empty. It is not kept in the repository; populate it from "
+        "an SDK checkout:\n    ./scripts/sync-vendor.sh\n"
+        "Building through the SDK app tree does not need this.")
+endif()
+
 add_subdirectory(vendor/mpp)
 add_subdirectory(vendor/rga)
 add_subdirectory(vendor/rkaiq)
