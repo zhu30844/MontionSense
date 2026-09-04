@@ -184,7 +184,13 @@ the image, so `install()` of the Rockchip `.so` files is skipped whenever
 ```
 
 The binary is linked with `RPATH=$ORIGIN/../lib`, which resolves to
-`/oem/usr/lib` from `/oem/usr/bin`, so no `LD_LIBRARY_PATH` is needed.
+`/oem/usr/lib` from `/oem/usr/bin`. That covers the daemon's own `NEEDED`
+entries but **not** the transitive ones: `librockit.so` itself needs
+`librockchip_mpp.so.1` and `librga.so`, and resolving a library's own
+dependencies does not consult the executable's RPATH. `S99motionsense`
+therefore still exports `LD_LIBRARY_PATH=/oem/usr/lib`; without it the daemon
+dies at exec with `can't load library 'librockchip_mpp.so.1'` even though the
+file is right there.
 
 `S99motionsense` waits for `/mnt/sdcard` to be mounted (up to 30s) before
 starting, and hands the camera over from the stock `rkipc` app first. The SD
