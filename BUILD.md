@@ -349,6 +349,27 @@ RPATH. `S99motionsense` therefore exports `LD_LIBRARY_PATH=/oem/usr/lib`.
 Without it the daemon exits at exec with `can't load library
 'librockchip_mpp.so.1'`.
 
+### Timezone
+
+The image carries no zoneinfo database, so a named zone does not resolve.
+`overlay-motionsense/etc/TZ` holds a POSIX zone string, which uclibc reads
+directly:
+
+```
+AWST-8
+```
+
+The sign is inverted from what the name suggests: `AWST-8` means UTC+8. It
+reaches the image through `RK_POST_OVERLAY` like everything else in that
+directory, so no separate step is needed at packaging time.
+
+Without it the device runs on UTC, and both the OSD timestamp and the
+recording start times — which call `localtime()` — are off by the offset.
+
+The clock itself comes from the RTC at boot and from ntpd afterwards. A cold
+start with a flat RTC battery records its first segment under whatever date
+the clock held before ntpd corrects it.
+
 `S99motionsense` waits for `/mnt/sdcard` to be mounted (up to 30s) before
 starting, and hands the camera over from the stock `rkipc` app first. The SD
 card is auto-mounted by a udev rule shipped in the rootfs
