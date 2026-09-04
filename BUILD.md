@@ -115,6 +115,55 @@ size from `RK_PARTITION_CMD_IN_ENV`. For ubifs it calls
 2KB/256KB, 4KB/256KB page/block) and symlinks the one matching the default
 geometry to `<name>.img`.
 
+### What Luckfox added on top of the Rockchip SDK
+
+The hook and overlay machinery is Rockchip's; the scripts filling it are
+Luckfox's, and they all live in `project/cfg/BoardConfig_IPC/`.
+
+| Script | Hook | Used by |
+|---|---|---|
+| `luckfox-buildroot-oem-pre.sh` | `RK_PRE_BUILD_OEM_SCRIPT` | 11 board configs |
+| `luckfox-buildroot-nocsi-oem-pre.sh` | same | 2 (boards with no camera) |
+| `luckfox-glibc-oem-pre.sh` | same | none currently |
+| `luckfox-userdata-pre.sh` | `RK_PRE_BUILD_USERDATA_SCRIPT` | 14 board configs |
+| `luckfox-rv1106-tb-spi_nand-post.sh` | `RK_POST_BUILD_SCRIPT` | the SPI NAND fastboot config |
+| `luckfox-rv1106-tb-emmc-post.sh` | same | the eMMC fastboot config |
+| `luckfox-systemd-off-modem-post.sh` | same | none currently |
+
+The `*-oem-pre.sh` scripts are all the same shape: an `lf_rm` helper and a
+`remove_data()` that deletes from `$RK_PROJECT_PACKAGE_OEM_DIR` — the AIISP
+models, `libdrm`, `libkms`, `libfreetype`, `libiconv`, `librkAVS`, `libjpeg`,
+`libpng`, and the vqe data files. `motionsense-oem-pre.sh` is that file plus
+this board's own removals.
+
+`luckfox-userdata-pre.sh` deletes `*.sh` and `*.bmp` from the userdata staging.
+
+The fastboot `*-post.sh` scripts are larger: they prune `usr/ko` down to the
+modules a fast boot needs and strip the oem tree to a keep-list.
+
+Overlays, same directory under `overlay/`:
+
+| Overlay | Installs |
+|---|---|
+| `overlay-luckfox-config` | `usr/bin/luckfox-config` and two init scripts, `S99luckfoxconfigload` (runs `luckfox-config load` at boot) and `S99luckfoxcustomoverlay` |
+| `overlay-luckfox-buildroot-init` | `S50sshd`, `S60micinit`, `S99hciinit`, `S99python`, `S99rtcinit`, `S99usb0config`, `etc/profile`, `usr/bin/iomux` |
+| `overlay-luckfox-buildroot-shadow` | `etc/shadow`, `etc/ssh/sshd_config`, `etc/samba/{smb.conf,smbpasswd}` |
+| `overlay-luckfox-wifibt-firmware` | rtl8723b firmware blobs |
+| `overlay-luckfox-fastboot`, `-buildroot-tiny` | trimmed `etc/inittab`, `etc/fstab` for fast boot |
+| `-buildroot-86panel`, `-rgb`, `-webbee`, `-sim7600g`, `-ppp`, `-glibc-*` | other Luckfox boards |
+
+This board uses the first three.
+
+`S99usb0config` is the one to know about: it sets `usb0` to `172.32.0.93` when
+the USB controller is in peripheral mode, retrying up to ten times. That is
+where the RNDIS address comes from.
+
+Luckfox also added to `build.sh` itself: the `LF_*` board-config variables
+(`LF_TARGET_ROOTFS`, `LF_BOOT_MEDIA`, `LF_HARDWARE`, `LF_SYSTEM`,
+`LF_ORIGIN_BOARD_CONFIG`, `LF_WIFI_SSID`/`LF_WIFI_PSK`,
+`LF_ENABLE_SPI_NAND_FAST_BOOT`), the `lunch` menu built from those arrays, and
+`lf_blkenvpackage`, which packs `sd_update.img` for SD-card boot mediums.
+
 `Makefile` here is a thin wrapper. It includes `../Makefile.param` for the
 cross toolchain and media paths, then drives the same CMake build the
 standalone flow uses. Two details that bite if you copy it elsewhere:
