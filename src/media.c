@@ -58,7 +58,7 @@ static int s_web_srv_fd = -1;
 /* Called once on first use: bind + listen (non-blocking accept). */
 static void web_sock_srv_init(void)
 {
-    unlink(MJPEG_SOCK_PATH);
+    unlink(CFG_SOCKET_PATH);
 
     int srv = socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0);
     if (srv < 0)
@@ -70,7 +70,7 @@ static void web_sock_srv_init(void)
     struct sockaddr_un addr;
     memset(&addr, 0, sizeof(addr));
     addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, MJPEG_SOCK_PATH, sizeof(addr.sun_path) - 1);
+    strncpy(addr.sun_path, CFG_SOCKET_PATH, sizeof(addr.sun_path) - 1);
 
     if (bind(srv, (struct sockaddr *)&addr, sizeof(addr)) < 0)
     {
@@ -85,7 +85,7 @@ static void web_sock_srv_init(void)
         return;
     }
     s_web_srv_fd = srv;
-    MS_LOG_INFO("web_sock: listening on %s\n", MJPEG_SOCK_PATH);
+    MS_LOG_INFO("web_sock: listening on %s\n", CFG_SOCKET_PATH);
 }
 
 static void web_sock_push(const void *data, size_t len)
@@ -982,7 +982,7 @@ void media_stop(app_ctx_t *ctx)
     {
         close(s_web_srv_fd);
         s_web_srv_fd = -1;
-        unlink(MJPEG_SOCK_PATH);
+        unlink(CFG_SOCKET_PATH);
     }
 }
 

@@ -34,12 +34,9 @@ extern "C" {
 #define OSD_RGN_H264                0   // OSD region for H264 channel
 #define OSD_RGN_MJPEG               1   // OSD region for MJPEG channel
 
-// Image Quality(IQ) File
-#define CFG_ISP_IQ_DIR              "/etc/iqfiles"
-
-
-// Socket path for streaming MJPEG frames to main.c
-#define MJPEG_SOCK_PATH "/tmp/motionsense-stream.sock"
+/* CFG_ISP_IQ_DIR and CFG_SOCKET_PATH live in config.h; they used to be
+ * duplicated here, and the socket had a second name (MJPEG_SOCK_PATH) that
+ * disagreed with the one the Go agent dials. */
 
 /* Bring VI/VENC/IVS up and start the three producer threads. */
 int  media_init(app_ctx_t *ctx);

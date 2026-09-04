@@ -13,7 +13,7 @@
 #define CFG_ISP_IQ_DIR       "/etc/iqfiles"
 #define CFG_OSD_FONT_PATH    "/oem/usr/share/MotionSense/fonts/simsun_en.ttf"
 #define CFG_CONFIG_PATH      "/mnt/sdcard/MotionSense/config.yaml"
-#define CFG_SOCKET_PATH      "/tmp/motionsense.sock"
+#define CFG_SOCKET_PATH      "/tmp/motionsense-stream.sock"
 
 /* ------------------------------------------------------------------ */
 /* Compile-time defaults (used when config.yaml is absent or partial) */

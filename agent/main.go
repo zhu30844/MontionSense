@@ -17,7 +17,7 @@ import (
 
 const (
 	port            = ":5000"
-	socketPath      = "/tmp/motionsense.sock"
+	socketPath      = "/tmp/motionsense-stream.sock"
 	dcimRoot        = "/mnt/sdcard/DCIM"
 	shutdownTimeout = 5 * time.Second
 )
