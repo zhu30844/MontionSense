@@ -109,10 +109,11 @@ type statusResponse struct {
 	WorkLoad     float64 `json:"workLoad"`
 	CpuTemp      string  `json:"cpuTemp"`
 	// True while frames are still arriving from the C daemon over the unix
-	// socket — a heartbeat for the producer, not a statement about the video.
-	// The page cannot infer it from the <img>: a stalled stream keeps the
-	// connection open and fires no event either way.
-	Heartbeat  bool   `json:"heartbeat"`
+	// socket. This says the picture is live, not that the device is up: the
+	// agent answering this request is what says that. The page cannot infer
+	// it from the <img>, which fires no event while a connection is open and
+	// silent.
+	FrameFlow  bool   `json:"frameFlow"`
 	LastRecord string `json:"lastRecord"`
 }
 
@@ -237,7 +238,7 @@ func statusHandler(broker *stream.Broker, start time.Time, dcimRoot string) func
 		// Two seconds is comfortably longer than a frame interval at the
 		// lowest capture rate this records at.
 		if age := broker.SecondsSinceFrame(); age >= 0 && age < 2 {
-			status.Heartbeat = true
+			status.FrameFlow = true
 		}
 
 		w.Header().Set("Content-Type", "application/json")

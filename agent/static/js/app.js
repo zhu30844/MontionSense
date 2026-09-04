@@ -159,27 +159,17 @@ class MotionSenseApp {
             if (level) el.classList.add(level);
         };
 
-        // Heartbeat first: it decides whether the rest is worth showing. It
-        // reports whether the C daemon is still delivering frames, which is a
-        // different question from whether the browser is rendering them — the
-        // overlay on the video answers that one.
-        const live = s.heartbeat !== false;
-        if (typeof s.heartbeat === 'boolean') {
-            const t = this.translations[this.currentLang];
-            set('valHeartbeat', live ? t.deviceOnline : t.deviceOffline,
-                live ? null : 'alert');
-            this.setStreamStatus(live ? 'connected' : 'disconnected');
-        }
+        // Reaching here means the agent answered, which is what the card
+        // reports: the device is online when the browser can talk to Go. The
+        // C daemon dying does not make it offline — the agent is still there,
+        // and everything below is still true.
+        set('valHeartbeat', this.translations[this.currentLang].deviceOnline);
 
-        // Offline means the daemon is gone, so temperature, load and the rest
-        // describe a device that is no longer producing anything. Blank them
-        // rather than leaving the last values looking current.
-        if (!live) {
-            ['valCpuTemp', 'valWorkLoad', 'valMemory', 'valClients',
-             'valSystemUptime', 'valLastRecord'].forEach(id => set(id, '—'));
-            const stamp = document.getElementById('statusUpdated');
-            if (stamp) stamp.textContent = new Date().toLocaleTimeString();
-            return;
+        // frameFlow says whether the C daemon is still delivering frames.
+        // That belongs to the video overlay, which is what the viewer checks
+        // to tell a live picture from a frozen one.
+        if (typeof s.frameFlow === 'boolean') {
+            this.setStreamStatus(s.frameFlow ? 'connected' : 'disconnected');
         }
 
         // cpuTemp arrives formatted ("47.6°C"); parse only to pick a colour.
@@ -217,13 +207,21 @@ class MotionSenseApp {
     }
 
     markDeviceStatusStale() {
-        // Keep the last known values on screen, greyed, rather than blanking
-        // the card on a single failed poll.
-        ['valHeartbeat', 'valCpuTemp', 'valWorkLoad', 'valMemory', 'valClients',
-         'valSystemUptime', 'valLastRecord'].forEach(id => {
+        // A failed poll is the device going offline, since the card's subject
+        // is whether the browser can reach the agent at all. The other values
+        // came from an agent that is no longer answering, so they are cleared
+        // rather than left looking current.
+        const set = (id, text, level) => {
             const el = document.getElementById(id);
-            if (el) el.classList.add('stale');
-        });
+            if (!el) return;
+            el.textContent = text;
+            el.classList.remove('warn', 'alert', 'stale');
+            if (level) el.classList.add(level);
+        };
+
+        set('valHeartbeat', this.translations[this.currentLang].deviceOffline, 'alert');
+        ['valCpuTemp', 'valWorkLoad', 'valMemory', 'valClients',
+         'valSystemUptime', 'valLastRecord'].forEach(id => set(id, '—'));
     }
 
     formatBytes(bytes) {
