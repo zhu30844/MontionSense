@@ -3,6 +3,7 @@ class MotionSenseApp {
     constructor() {
         this.currentLang = 'en';
         this.currentView = 'live';
+        this.statusTimer = null;
         this.translations = {
             zh: {
                 logoText: 'MotionSense',
@@ -93,8 +94,42 @@ class MotionSenseApp {
     // ---- Device status card ----
 
     initDeviceStatus() {
+        this.startDeviceStatus();
+
+        // Stop polling whenever the card cannot be seen. Fullscreen covers it,
+        // and so does switching to the calendar or backgrounding the tab.
+        // Listening for fullscreenchange rather than hooking the button catches
+        // Esc, F11 and anything the browser initiates on its own.
+        document.addEventListener('fullscreenchange', () => this.syncDeviceStatusPolling());
+        document.addEventListener('visibilitychange', () => this.syncDeviceStatusPolling());
+    }
+
+    // The card lives in the live view, is hidden by fullscreen, and is not
+    // worth refreshing while the tab is in the background.
+    deviceStatusVisible() {
+        return !document.fullscreenElement &&
+               !document.hidden &&
+               this.currentView === 'live';
+    }
+
+    syncDeviceStatusPolling() {
+        if (this.deviceStatusVisible()) {
+            this.startDeviceStatus();
+        } else {
+            this.stopDeviceStatus();
+        }
+    }
+
+    startDeviceStatus() {
+        if (this.statusTimer) return;
         this.fetchDeviceStatus();
-        setInterval(() => this.fetchDeviceStatus(), 2000);
+        this.statusTimer = setInterval(() => this.fetchDeviceStatus(), 2000);
+    }
+
+    stopDeviceStatus() {
+        if (!this.statusTimer) return;
+        clearInterval(this.statusTimer);
+        this.statusTimer = null;
     }
 
     async fetchDeviceStatus() {
@@ -205,6 +240,7 @@ class MotionSenseApp {
         }
 
         this.currentView = viewName;
+        this.syncDeviceStatusPolling();
 
         // Initialize view-specific functionality
         this.initView(viewName);
