@@ -2,11 +2,32 @@ cmake_minimum_required(VERSION 3.13)
 
 # ------------------------------------------------------------------
 # Toolchain
-# Skipped when CMAKE_C_COMPILER is already set (e.g. by Buildroot).
+#
+# The cross toolchain is no longer vendored here: it is a byte-identical copy
+# of the one the Luckfox SDK ships, and carrying a second 380MB of it (plus
+# Rockchip's closed-source flashing tools) served no purpose once this tree
+# lives at <sdk>/project/app/motionsense.
+#
+# Resolution order:
+#   1. CMAKE_C_COMPILER already set  -> the SDK app build passes it in
+#   2. $LF_TOOLCHAIN                 -> exported by the devcontainer
+#   3. ../../../tools/...            -> this tree's place inside the SDK
 # ------------------------------------------------------------------
 if(NOT DEFINED CMAKE_C_COMPILER)
-    set(MS_TOOLCHAIN
-        "${CMAKE_CURRENT_SOURCE_DIR}/tools/linux/toolchain/arm-rockchip830-linux-uclibcgnueabihf")
+    if(DEFINED ENV{LF_TOOLCHAIN})
+        set(MS_TOOLCHAIN "$ENV{LF_TOOLCHAIN}")
+    else()
+        set(MS_TOOLCHAIN
+            "${CMAKE_CURRENT_SOURCE_DIR}/../../../tools/linux/toolchain/arm-rockchip830-linux-uclibcgnueabihf")
+    endif()
+
+    if(NOT EXISTS "${MS_TOOLCHAIN}/bin/arm-rockchip830-linux-uclibcgnueabihf-gcc")
+        message(FATAL_ERROR
+            "Cross toolchain not found at ${MS_TOOLCHAIN}.\n"
+            "Build from inside a Luckfox SDK checkout, set LF_TOOLCHAIN, or pass "
+            "-DCMAKE_C_COMPILER explicitly.")
+    endif()
+
     set(CMAKE_C_COMPILER
         "${MS_TOOLCHAIN}/bin/arm-rockchip830-linux-uclibcgnueabihf-gcc")
     set(CMAKE_CXX_COMPILER
@@ -39,29 +60,19 @@ if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif()
 
 # ------------------------------------------------------------------
-# Dependencies — all sourced from the tree (vendor/ and 3rdparty/).
+# Dependencies — Rockchip libs from vendor/ or the SDK, distro libs from the
+# buildroot sysroot, the rest built from source under 3rdparty/.
 # ------------------------------------------------------------------
 add_subdirectory(vendor/mpp)
 add_subdirectory(vendor/rga)
 add_subdirectory(vendor/rkaiq)
 add_subdirectory(vendor/rockit)
 
-add_subdirectory(3rdparty/sqlite)
-add_subdirectory(3rdparty/iconv EXCLUDE_FROM_ALL)
+# sqlite3, libyaml, libiconv and freetype come from the buildroot sysroot
+# rather than vendored source; see cmake/SystemLibs.cmake.
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/SystemLibs.cmake)
 
-set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
-add_subdirectory(3rdparty/libyaml EXCLUDE_FROM_ALL)
-add_library(yaml::yaml ALIAS yaml)
-
-set(FT_DISABLE_ZLIB     ON CACHE BOOL "" FORCE)
-set(FT_DISABLE_BZIP2    ON CACHE BOOL "" FORCE)
-set(FT_DISABLE_PNG      ON CACHE BOOL "" FORCE)
-set(FT_DISABLE_HARFBUZZ ON CACHE BOOL "" FORCE)
-set(FT_DISABLE_BROTLI   ON CACHE BOOL "" FORCE)
-set(BUILD_SHARED_LIBS   OFF CACHE BOOL "" FORCE)
-add_subdirectory(3rdparty/freetype EXCLUDE_FROM_ALL)
-add_library(freetype::freetype ALIAS freetype)
-
+# Still built from source: not distro packages, and patched/trimmed for us.
 add_subdirectory(3rdparty/media_server)
 add_subdirectory(3rdparty/osd)
 

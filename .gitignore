@@ -40,3 +40,7 @@ Thumbs.db
 # --- Luckfox SDK app build output ---
 /build-sdk/
 /install-sdk/
+
+# --- Rockchip toolchain and flashing tools ---
+# Provided by the Luckfox SDK checkout this tree lives in; see CMakeLists.txt.
+/tools/

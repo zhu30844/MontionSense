@@ -1,0 +1,24 @@
+# Buildroot packages MotionSense needs in the target rootfs.
+#
+# This file is the declaration; it is not consumed by buildroot directly.
+# The Luckfox SDK passes RK_BUILDROOT_DEFCONFIG straight to buildroot as a
+# make target, so buildroot needs one complete defconfig file and has no
+# fragment or BR2_EXTERNAL mechanism wired up in this SDK. Rather than leave
+# the dependency buried in an SDK file far from the code that needs it,
+# it is declared here and applied with:
+#
+#     scripts/gen-buildroot-defconfig.sh
+#
+# which regenerates sysdrv/tools/board/buildroot/motionsense_defconfig from
+# the vendor luckfox_pico_defconfig plus these lines. Run it after editing
+# this file, then rebuild.
+#
+# Each entry names the shared library it is expected to provide, which is
+# what cmake/SystemLibs.cmake looks for in the sysroot.
+
+BR2_PACKAGE_LIBYAML=y   # libyaml-0.so.2   -> yaml::yaml
+BR2_PACKAGE_SQLITE=y    # libsqlite3.so.0  -> sqlite3::sqlite3
+
+# Not listed, but relied on and already enabled in the vendor defconfig:
+#   BR2_PACKAGE_FREETYPE   libfreetype.so.6  -> freetype::freetype
+#   libiconv arrives as a dependency of other packages
