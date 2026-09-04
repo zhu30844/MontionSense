@@ -102,6 +102,7 @@ Each of these presents as something other than its cause.
 | Clicking a past date returns 500 and a JSON parse error | Day with no `EventLogs.db`; `mode=ro` fails on a missing file | Empty day is 200 with no segments — `dc48835` |
 | Overlay reads "Streaming" but the picture is black | `<img>` still holds the connection that died with the daemon; `src` unchanged, so the browser considers it loaded | Re-request with a fresh query string — `74beb6d` |
 | Clock runs eight hours ahead a minute or two into every boot, RTC correct throughout | rkipc ships its own NTP client (`[network.ntp] enable = 1`, 60 s), adds the timezone to the UTC it receives, and has busybox write that back as UTC. `RkLunch-stop.sh` at S99 cannot stop it: RkLunch starts rkipc from a backgrounded `post_chk` that waits on /userdata first, so the stop call runs before the process exists | Drop rkipc and its inis in the oem hook — `529f3537f6` (SDK) |
+| Between local midnight and 08:00 the status card names yesterday as the last recording, while today's segments are on the card | Go reads TZ and /etc/localtime, never /etc/TZ, and the image ships no zoneinfo, so time.Local is UTC while the daemon names directories in local time. Today's directory then sorts ahead of Go's "today" and the future-date guard discards it | Agent parses /etc/TZ into time.Local — `8a2ee60` |
 
 ## Unexplained
 
