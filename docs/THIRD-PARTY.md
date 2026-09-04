@@ -1,7 +1,8 @@
 # Third-party components
 
-`LICENSE` (MIT) covers the code written for this project. This file lists
-everything else in the tree and the terms it carries.
+`../LICENSE` (MIT) covers the code written for this project. This file lists
+everything else in the tree and the terms it carries. Paths are relative to
+the repository root, not to this directory.
 
 ## Covered by LICENSE (MIT)
 
@@ -10,7 +11,7 @@ everything else in the tree and the terms it carries.
 | `src/`, `include/` | the C daemon |
 | `agent/` | the Go agent and its web assets, except `agent/static/js/video-js-*/` |
 | `cmake/`, `scripts/`, `Makefile`, `CMakeLists.txt` | build |
-| `config.yaml`, `S99motionsense`, `*.sh`, `BUILD.md` | packaging and docs |
+| `config.yaml`, `S99motionsense`, `*.sh`, `docs/` | packaging and docs |
 
 ## Distributed here, under their own terms
 

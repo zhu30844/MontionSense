@@ -32,7 +32,7 @@ defaults are used when it is absent.
 - Luckfox Pico Pro Max, SPI NAND boot
 - An SD card, ext4, **without the `orphan_file` feature** — the 5.10 kernel
   cannot mount it read-write otherwise, and nothing starts. See
-  [BUILD.md](BUILD.md#the-sd-card).
+  [docs/BUILD.md](docs/BUILD.md#the-sd-card).
 - x86-64 Linux host
 
 ## Building
@@ -62,12 +62,12 @@ Editing this app means editing `project/app/motionsense` inside that workspace.
 Building on the host works too — `./build.sh` puts the toolchain on `PATH`
 itself — provided the SDK's build dependencies are installed.
 
-[BUILD.md](BUILD.md) covers the build chain, the board configuration, the
+[docs/BUILD.md](docs/BUILD.md) covers the build chain, the board configuration, the
 on-device layout and what to check when something does not come up.
-[DEVNOTES.md](DEVNOTES.md) covers working on the board: how to connect to it,
+[docs/DEVNOTES.md](docs/DEVNOTES.md) covers working on the board: how to connect to it,
 what to do when a link drops, and the bugs that present as something else.
 
 ## Licence
 
-MIT — see [LICENSE](LICENSE). [THIRD-PARTY.md](THIRD-PARTY.md) lists everything
+MIT — see [LICENSE](LICENSE). [docs/THIRD-PARTY.md](docs/THIRD-PARTY.md) lists everything
 in the tree that is not covered by it.
