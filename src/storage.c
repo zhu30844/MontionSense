@@ -247,6 +247,8 @@ static int open_today(writer_state_t *ws)
     ws->motion_count = 0;
     ws->last_fps = g_cfg.ivs.fps_low;
     ws->pts_ms = 0;
+    /* New playlist, so wait for a keyframe again before writing into it. */
+    ws->seen_keyframe = false;
 
     if (hls_create(ws) != 0)
     {
@@ -316,6 +318,18 @@ static void ingest_frame(writer_state_t *ws, app_ctx_t *ctx, const fq_frame *f)
     {
         MS_LOG_INFO("day rollover: %s -> %s\n", ws->date, date_now);
         rollover_day(ws);
+    }
+
+    /* Drop everything before the first keyframe. The encoder does not
+     * necessarily hand back an IDR first, and libhls opens a segment on
+     * whatever it is given, so starting mid-GOP produced a first .ts holding
+     * P-frames with no SPS/PPS: ffprobe reported width=0 and "non-existing
+     * PPS 0 referenced", and browsers failed it with MEDIA_ERR_DECODE. */
+    if (!ws->seen_keyframe)
+    {
+        if (!f->is_key)
+            return;
+        ws->seen_keyframe = true;
     }
 
     ws->pts_ms = f->pts_us / 1000;

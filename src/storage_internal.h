@@ -62,6 +62,7 @@ typedef struct {
     int          motion_count;           /* for VideoMetadata rollup      */
     int          last_fps;               /* current fps state             */
     int64_t      last_motion_ms;         /* monotonic ms of last EventDetails write — debounce */
+    bool         seen_keyframe;          /* drop frames until the first IDR   */
 } writer_state_t;
 
 
