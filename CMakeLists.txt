@@ -96,9 +96,18 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     yaml::yaml
 )
 
+# Standalone installs a self-contained dir (binary + lib/ next to it).
+# The SDK installs the binary to /oem/usr/bin and the RK libs land in
+# /oem/usr/lib, one level up, so the RPATH differs.
+if(MS_RK_MEDIA_DIR)
+    set(MS_RPATH "\$ORIGIN/../lib")
+else()
+    set(MS_RPATH "\$ORIGIN/lib")
+endif()
+
 set_target_properties(${PROJECT_NAME} PROPERTIES
-    INSTALL_RPATH "\$ORIGIN/lib"
-    BUILD_RPATH   "\$ORIGIN/lib")
+    INSTALL_RPATH "${MS_RPATH}"
+    BUILD_RPATH   "${MS_RPATH}")
 
 # ------------------------------------------------------------------
 # Install
@@ -107,12 +116,16 @@ install(TARGETS ${PROJECT_NAME} DESTINATION ".")
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/config.yaml DESTINATION ".")
 # install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/www/ DESTINATION "www")
 
-# Vendor shared libraries needed at runtime
-install(FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/vendor/rockit/lib/librockit.so
-    ${CMAKE_CURRENT_SOURCE_DIR}/vendor/rkaiq/lib/librkaiq.so
-    ${CMAKE_CURRENT_SOURCE_DIR}/vendor/mpp/lib/librockchip_mpp.so
-    ${CMAKE_CURRENT_SOURCE_DIR}/vendor/mpp/lib/librockchip_mpp.so.0
-    ${CMAKE_CURRENT_SOURCE_DIR}/vendor/mpp/lib/librockchip_mpp.so.1
-    ${CMAKE_CURRENT_SOURCE_DIR}/vendor/rga/lib/librga.so
-    DESTINATION "lib")
+# Vendor shared libraries. Only needed for the standalone layout: under the
+# Luckfox SDK these already ship in /oem/usr/lib (build.sh copies media_out/lib
+# there), so a second copy would waste oem space and could drift from the SDK.
+if(NOT MS_RK_MEDIA_DIR)
+    install(FILES
+        ${CMAKE_CURRENT_SOURCE_DIR}/vendor/rockit/lib/librockit.so
+        ${CMAKE_CURRENT_SOURCE_DIR}/vendor/rkaiq/lib/librkaiq.so
+        ${CMAKE_CURRENT_SOURCE_DIR}/vendor/mpp/lib/librockchip_mpp.so
+        ${CMAKE_CURRENT_SOURCE_DIR}/vendor/mpp/lib/librockchip_mpp.so.0
+        ${CMAKE_CURRENT_SOURCE_DIR}/vendor/mpp/lib/librockchip_mpp.so.1
+        ${CMAKE_CURRENT_SOURCE_DIR}/vendor/rga/lib/librga.so
+        DESTINATION "lib")
+endif()
