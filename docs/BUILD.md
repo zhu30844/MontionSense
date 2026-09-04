@@ -20,8 +20,15 @@ git clone --recurse-submodules git@github.com:zhu30844/luckfox-pico-sdk.git
 cd luckfox-pico-sdk
 printf '9\n15\n' | ./build.sh lunch     # hardware "custom" -> MotionSense
 ./build.sh                              # ~20 min cold, minutes warm
-./rkflash.sh update                     # board in maskrom/loader mode
+
+adb reboot loader                       # put the board in maskrom/loader mode
+./rkflash.sh update
 ```
+
+`upgrade_tool` segfaults on some hosts and runs correctly inside the
+devcontainer, so flash from there if `./rkflash.sh` dies. `rkflash.sh`'s
+single-partition targets (`boot`, `rootfs`, ...) do not upload the loader
+first and fail with "parameter is invalid"; `update` is the working path.
 
 The image is `output/image/update.img`, with a timestamped copy under
 `IMAGE/IPC_SPI_NAND_BUILDROOT_RV1106_MOTIONSENSE_<date>_RELEASE_TEST/`.

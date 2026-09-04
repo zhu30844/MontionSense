@@ -48,7 +48,8 @@ git clone --recurse-submodules git@github.com:zhu30844/luckfox-pico-sdk.git
 cd luckfox-pico-sdk
 printf '9\n15\n' | ./build.sh lunch     # hardware "custom" -> MotionSense
 ./build.sh
-./rkflash.sh update                     # board in maskrom/loader mode
+adb reboot loader                       # put the board in maskrom/loader mode
+./rkflash.sh update
 ```
 
 ### Development container
@@ -66,6 +67,26 @@ itself — provided the SDK's build dependencies are installed.
 on-device layout and what to check when something does not come up.
 [docs/DEVNOTES.md](docs/DEVNOTES.md) covers working on the board: how to connect to it,
 what to do when a link drops, and the bugs that present as something else.
+
+## Scope
+
+A learning project. Not built, tested or reviewed as a security product, and
+not suitable for one.
+
+Concretely, on the image this repository produces:
+
+- The HTTP interface has no authentication. Anyone who can reach port 80 can
+  watch the live stream and every recording.
+- The root password is the vendor's, shipped in the image and identical on
+  every board built from it.
+- Recordings and the metadata databases are unencrypted on the SD card.
+- Nothing is hardened against a hostile network, and nothing here has had a
+  security review.
+
+Keep it on a network you control. Do not expose it to the internet, and do not
+rely on it for anything that matters — safety, evidence, or an audit trail.
+
+The author accepts no responsibility for what it does or fails to do.
 
 ## Licence
 
