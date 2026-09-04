@@ -1,0 +1,14 @@
+--- /tmp/base2.c	2026-09-04 17:23:48.618371447 +0800
++++ 3rdparty/media-server-local/hls-media.c	2026-09-04 17:22:03.668990682 +0800
+@@ -144,7 +144,10 @@
+ 	int force_new_segment;
+ 	int64_t duration;
+ 
+-	assert(dts < hls->dts_last + hls->duration || PTS_NO_VALUE == hls->dts_last);
++	/* local patch: duration==0 (one segment per keyframe) is supported by the cut
++	 * logic below, but this continuity assert forgot to allow it and aborts on the
++	 * 2nd frame (build has asserts enabled). Permit duration==0. */
++	assert(hls->duration == 0 || dts < hls->dts_last + hls->duration || PTS_NO_VALUE == hls->dts_last);
+ 	stream = hls_media_add_stream(hls, avtype, NULL, 0);
+ 
+ 	// PTS/DTS rewind

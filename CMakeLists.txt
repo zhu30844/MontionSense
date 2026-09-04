@@ -73,7 +73,9 @@ add_subdirectory(vendor/rockit)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/SystemLibs.cmake)
 
 # Still built from source: not distro packages, and patched/trimmed for us.
-add_subdirectory(3rdparty/media_server)
+# media-server is a pinned submodule; its build glue is ours, so it lives in
+# cmake/ rather than inside the submodule.
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/MediaServer.cmake)
 add_subdirectory(3rdparty/osd)
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
