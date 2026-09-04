@@ -17,8 +17,8 @@ class MotionSenseApp {
                 statusText: '连接中',
                 statusStreaming: '视频流正常',
                 statusConnecting: '连接中',
-                streamOnline: '在线',
-                streamOffline: '离线',
+                deviceOnline: '在线',
+                deviceOffline: '离线',
                 loadingText: '加载中...',
                 statusCardTitle: '设备状态',
                 labelCpuTemp: '温度',
@@ -40,8 +40,8 @@ class MotionSenseApp {
                 statusText: 'Connecting',
                 statusStreaming: 'Streaming',
                 statusConnecting: 'Connecting',
-                streamOnline: 'Online',
-                streamOffline: 'Offline',
+                deviceOnline: 'Online',
+                deviceOffline: 'Offline',
                 loadingText: 'Loading...',
                 statusCardTitle: 'Device Status',
                 labelCpuTemp: 'Temperature',
@@ -159,11 +159,14 @@ class MotionSenseApp {
             if (level) el.classList.add(level);
         };
 
-        // Stream state first: it decides whether the rest is worth showing.
-        const live = s.streamLive !== false;
-        if (typeof s.streamLive === 'boolean') {
+        // Heartbeat first: it decides whether the rest is worth showing. It
+        // reports whether the C daemon is still delivering frames, which is a
+        // different question from whether the browser is rendering them — the
+        // overlay on the video answers that one.
+        const live = s.heartbeat !== false;
+        if (typeof s.heartbeat === 'boolean') {
             const t = this.translations[this.currentLang];
-            set('valStream', live ? t.streamOnline : t.streamOffline,
+            set('valHeartbeat', live ? t.deviceOnline : t.deviceOffline,
                 live ? null : 'alert');
             this.setStreamStatus(live ? 'connected' : 'disconnected');
         }
@@ -216,7 +219,7 @@ class MotionSenseApp {
     markDeviceStatusStale() {
         // Keep the last known values on screen, greyed, rather than blanking
         // the card on a single failed poll.
-        ['valStream', 'valCpuTemp', 'valWorkLoad', 'valMemory', 'valClients',
+        ['valHeartbeat', 'valCpuTemp', 'valWorkLoad', 'valMemory', 'valClients',
          'valSystemUptime', 'valLastRecord'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.classList.add('stale');
