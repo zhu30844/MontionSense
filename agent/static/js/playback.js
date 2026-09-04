@@ -5,7 +5,6 @@ class PlaybackApp {
         this.currentDate = null;
         this.currentSegment = null;
         this.videoSegments = [];
-        this.motionPoints = [];
         this.player = null;
         this.currentLang = 'zh';
         
@@ -174,9 +173,6 @@ class PlaybackApp {
             // Load video segments
             await this.loadVideoSegments(date);
             
-            // Load motion points if available
-            await this.loadMotionPoints(date);
-            
             this.hideLoading();
             console.log('Successfully loaded playback data');
         } catch (error) {
@@ -203,6 +199,7 @@ class PlaybackApp {
                 total_frames: s.totalFrames,
                 playlist_url: s.playlistUrl,
                 duration_seconds: s.durationSeconds,
+                motion_frames: s.motionFrames || [],
             }));
             console.log('Found', this.videoSegments.length, 'video segments');
             this.generateSegmentsTable();
@@ -225,18 +222,6 @@ class PlaybackApp {
             this.videoSegments = [];
             console.log('No video segments found');
             this.showNoSegments();
-        }
-    }
-
-    async loadMotionPoints(date) {
-        try {
-            // No server-side endpoint for per-day motion points yet; the
-            // timeline markers stay empty until one exists.
-            this.motionPoints = [];
-            this.updateMotionMarkers();
-        } catch (error) {
-            console.warn('Motion points API not available:', error);
-            this.motionPoints = [];
         }
     }
 
@@ -381,38 +366,34 @@ class PlaybackApp {
         // Clear existing markers
         this.markersContainer.innerHTML = '';
 
-        // Filter motion points for current segment
-        const segmentMotionPoints = this.motionPoints.filter(point => 
-            point.folder === this.currentSegment
-        );
+        const segment = this.videoSegments.find(s => s.folder === this.currentSegment);
+        const motionFrames = (segment && segment.motion_frames) || [];
+        const totalFrames = (segment && segment.total_frames) || 0;
 
-        if (segmentMotionPoints.length === 0) {
+        if (motionFrames.length === 0 || totalFrames === 0) {
             console.log('No motion points found for segment:', this.currentSegment);
             return;
         }
 
-        console.log('Found motion points for segment:', segmentMotionPoints.length);
+        console.log('Found motion points for segment:', motionFrames.length);
 
-        // Get video duration
         const duration = this.player.duration();
         if (!duration || duration === Infinity) {
             console.log('Video duration not available yet');
             return;
         }
 
-        // Create markers for each motion point
-        segmentMotionPoints.forEach(point => {
+        motionFrames.forEach(frame => {
             const marker = document.createElement('div');
             marker.className = 'motion-marker';
-            
-            // Calculate position based on motion_time (frame number) and video duration
-            // Assuming 30fps for frame to time conversion
-            const fps = 30;
-            const motionTimeInSeconds = point.motion_time / fps;
-            const position = (motionTimeInSeconds / duration) * 100;
-            
-            // Ensure position is within bounds
-            const clampedPosition = Math.max(0, Math.min(100, position));
+
+            // Position by share of frames rather than frame/fps: the recorder
+            // varies its capture rate with motion but rewrites PTS to a
+            // constant playback rate, so frame N sits at N/totalFrames of the
+            // playback timeline whatever rate it was captured at.
+            const share = frame / totalFrames;
+            const motionTimeInSeconds = share * duration;
+            const clampedPosition = Math.max(0, Math.min(100, share * 100));
             
             marker.style.cssText = `
                 position: absolute;
@@ -430,7 +411,7 @@ class PlaybackApp {
             `;
             
             // Add tooltip
-            marker.title = `Motion detected at frame ${point.motion_time} (${motionTimeInSeconds.toFixed(1)}s)`;
+            marker.title = `Motion detected at frame ${frame} (${motionTimeInSeconds.toFixed(1)}s)`;
             
             // Add click event to seek to position
             marker.addEventListener('click', () => {
@@ -453,7 +434,7 @@ class PlaybackApp {
             this.markersContainer.appendChild(marker);
         });
         
-        console.log('Created', segmentMotionPoints.length, 'motion markers');
+        console.log('Created', motionFrames.length, 'motion markers');
     }
 
     formatDuration(seconds) {

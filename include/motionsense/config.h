@@ -26,7 +26,7 @@
 #define CFG_IVS_H            360
 #define CFG_FPS_LOW          1
 #define CFG_FPS_HIGH         30
-#define CFG_MD_AREA_RATIO    0.25f
+#define CFG_MD_AREA_RATIO    0.05f
 #define CFG_IVS_POLL_MS      250
 #define CFG_OSD_FONT_SIZE    36
 #define CFG_OSD_MARGIN       16

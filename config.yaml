@@ -28,7 +28,7 @@ ivs:
   md_night_mode: true
   thresh_sad: 40        # SAD threshold
   thresh_move: 2        # move threshold
-  area_ratio: 0.10      # fraction of frame area to trigger motion
+  area_ratio: 0.05      # fraction of frame area to trigger motion
   poll_ms: 100          # ivs_thread poll interval (ms)
   fps_low: 1            # recording fps when no motion
   fps_high: 30          # recording fps when motion detected
