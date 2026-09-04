@@ -54,3 +54,8 @@ SDK clone is enough and no SDK build is required.
 ## Disclaimer
 
 This inventory records what the files themselves state. It is not legal advice.
+
+---
+
+Written by Claude (Opus 5) from the SDK sources and from testing on a Luckfox
+Pico Pro Max. Reviewed by ZIXUAN ZHU.

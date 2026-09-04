@@ -41,23 +41,79 @@ the host works too; `./build.sh` puts the cross toolchain on `PATH` itself.
 `./build.sh` runs the SDK's normal pipeline. MotionSense enters it at the
 app stage:
 
+`./build.sh` runs `build_all` then `build_save`:
+
 ```
-./build.sh
-  └─ sysdrv    u-boot, kernel, buildroot rootfs        -> output/out/rootfs_uclibc_rv1106
-  └─ media     Rockchip media libs (rockit/rkaiq/mpp/rga) -> output/out/media_out
-  └─ app       project/app/Makefile
-       └─ $(wildcard ./*/Makefile) finds motionsense/Makefile
-            ├─ c-daemon: cmake configure + build + install -> install-sdk/
-            │            MAROC_COPY_PKG_TO_APP_OUTPUT      -> project/app/out/{bin,share}
-            └─ go-agent: go build                          -> project/app/out/bin/
-  └─ project/app/out  ->  output/out/app_out
-  └─ __PACKAGE_OEM    ->  output/out/oem/usr/{bin,share}   (build.sh:1379)
-  └─ mkfs.ubifs       ->  output/image/oem.img
-  └─ update.img
+build_all
+  ├─ build_sysdrv    u-boot, kernel, buildroot   -> output/out/{sysdrv_out,rootfs_uclibc_rv1106}
+  ├─ build_media     Rockchip media libraries    -> output/out/media_out
+  ├─ build_app       project/app/Makefile        -> output/out/app_out
+  └─ build_firmware  staging, images, update.img -> output/image
+build_save                                       -> IMAGE/<name>_<date>_RELEASE_TEST
 ```
 
 Nothing in the SDK had to be edited to add the app: `project/app/Makefile`
 discovers any subdirectory containing a `Makefile`.
+
+```
+build_app
+  └─ $(wildcard ./*/Makefile) finds motionsense/Makefile
+       ├─ c-daemon: cmake configure + build + install -> install-sdk/
+       │            MAROC_COPY_PKG_TO_APP_OUTPUT      -> project/app/out/{bin,share}
+       └─ go-agent: go build                          -> project/app/out/bin/
+     project/app/out -> output/out/app_out
+```
+
+### build_firmware
+
+This is where the partition images are assembled. The order matters, because
+each step feeds the next:
+
+```
+build_env                    partition table + sys_bootargs   -> env.img
+build_meta                   fastboot builds only             -> meta.img
+__PACKAGE_ROOTFS             sysdrv rootfs tarball, then overlays
+                             app_out/root, media_out/root, external/
+                             + the generated /etc/init.d mount script
+__PACKAGE_OEM                app_out and media_out {bin,lib,share,usr,etc}
+                             -> oem staging, plus its init.d script
+__RUN_PRE_BUILD_OEM_SCRIPT   RK_PRE_BUILD_OEM_SCRIPT
+                             (preceded by __RUN_POST_CLEAN_FILES, which drops
+                             the NPU/AIISP/audio models the board did not select)
+build_mkimg <oem>            -> oem.img            (RK_BUILD_APP_TO_OEM_PARTITION=y)
+__RUN_POST_BUILD_SCRIPT      RK_POST_BUILD_SCRIPT
+post_overlay                 RK_POST_OVERLAY, rsync'd over the rootfs staging
+build_mkimg <rootfs>         -> rootfs.img
+__PACKAGE_USERDATA           media_out/install_to_userdata, app_out/install_to_userdata
+__RUN_POST_BUILD_USERDATA_SCRIPT   reads RK_PRE_BUILD_USERDATA_SCRIPT
+build_mkimg userdata         -> userdata.img
+build_tftp_sd_update
+build_updateimg              -> update.img
+```
+
+Four board-config hooks run in that sequence, all resolved relative to the
+board config's own directory:
+
+| Variable | When | This board |
+|---|---|---|
+| `RK_PRE_BUILD_OEM_SCRIPT` | after oem staging is populated, before `oem.img` | `motionsense-oem-pre.sh` |
+| `RK_POST_BUILD_SCRIPT` | after `oem.img`, before overlays | unset |
+| `RK_POST_OVERLAY` | after that, onto the rootfs staging | `overlay-luckfox-config`, `-buildroot-init`, `-buildroot-shadow`, `overlay-motionsense` |
+| `RK_PRE_BUILD_USERDATA_SCRIPT` | after userdata staging, before `userdata.img` | `luckfox-userdata-pre.sh` |
+
+The oem hook is the place to strip files from the image: it runs against the
+staging directory after everything has been copied in and before the
+filesystem is made. `motionsense-oem-pre.sh` uses it to drop the demo and test
+binaries the media build installs.
+
+Note the vendor naming: the function is `__RUN_POST_BUILD_USERDATA_SCRIPT` but
+the variable it reads is `RK_PRE_BUILD_USERDATA_SCRIPT`.
+
+`build_mkimg` picks the filesystem from `RK_PARTITION_FS_TYPE_CFG` and the
+size from `RK_PARTITION_CMD_IN_ENV`. For ubifs it calls
+`sysdrv/tools/pc/mtd-utils/mkfs_ubi.sh`, which builds three variants (2KB/128KB,
+2KB/256KB, 4KB/256KB page/block) and symlinks the one matching the default
+geometry to `<name>.img`.
 
 `Makefile` here is a thin wrapper. It includes `../Makefile.param` for the
 cross toolchain and media paths, then drives the same CMake build the
@@ -437,3 +493,8 @@ agent connects to the frame socket, and `/api/stream` delivers 15.0 fps at
 boundary against everything else: the Rockchip OSD sources (3-clause BSD), the
 DejaVu font, Video.js (Apache-2.0), media-server (MIT, a submodule), and the
 Rockchip media libraries, which are referenced but not distributed.
+
+---
+
+Written by Claude (Opus 5) from the SDK sources and from testing on a Luckfox
+Pico Pro Max. Reviewed by ZIXUAN ZHU.
