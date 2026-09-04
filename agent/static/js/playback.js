@@ -189,14 +189,15 @@ class PlaybackApp {
             }));
             this.generateSegmentsTable();
             
-            // Play first segment if available and player is ready
+            // Load the first segment but do not start it: browsers reject
+            // play() before the user has interacted with the page, and a
+            // rejected promise here is not an error worth reporting.
             if (this.videoSegments.length > 0 && this.player && this.player.readyState() >= 1) {
-                this.playVideoSegment(this.videoSegments[0].folder, 0);
+                this.playVideoSegment(this.videoSegments[0].folder, 0, false);
             } else if (this.videoSegments.length > 0) {
-                // Wait for player to be ready
                 if (this.player) {
                     this.player.ready(() => {
-                        this.playVideoSegment(this.videoSegments[0].folder, 0);
+                        this.playVideoSegment(this.videoSegments[0].folder, 0, false);
                     });
                 }
             }
@@ -287,7 +288,7 @@ class PlaybackApp {
         `;
     }
 
-    playVideoSegment(folder, index) {
+    playVideoSegment(folder, index, autoplay = true) {
         
         if (!this.currentDate) {
             console.error('No current date set');
@@ -312,10 +313,14 @@ class PlaybackApp {
             type: 'application/x-mpegURL'
         });
         
-        this.player.play().then(() => {
-        }).catch((error) => {
-            console.error('Error playing video:', error);
-        });
+        if (autoplay) {
+            this.player.play().catch((error) => {
+                // Autoplay policy, not a failure: the source is loaded and the
+                // player's own control will start it.
+                if (error && error.name === 'NotAllowedError') return;
+                console.error('Error playing video:', error);
+            });
+        }
         
         this.currentSegment = folder;
         this.highlightRow(index);
