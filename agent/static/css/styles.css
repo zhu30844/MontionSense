@@ -370,6 +370,12 @@ body {
     flex: 1 1 150px;
 }
 
+/* An item with no label centres its value instead of leaving the gap where
+ * the label would sit. */
+.status-item-solo {
+    justify-content: center;
+}
+
 .status-label {
     font-size: 0.8rem;
     color: #7a8194;
