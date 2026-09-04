@@ -40,6 +40,19 @@ draws an ASCII timestamp only.
 and `librga` with 462 headers, carrying `Copyright (c) 2021 Fuzhou Rockchip
 Electronics Co., Ltd`.
 
+The headers state their own terms. `librockit` and the ISP headers open with
+the SPDX line `GPL-2.0 WITH Linux-syscall-note OR Apache 2.0`; `librkaiq`,
+`librockchip_mpp` and `librga` reproduce the Apache-2.0 notice in full. Either
+branch permits redistribution in binary form, which is what makes a flashable
+image built from this project distributable, provided the notices travel with
+it.
+
+The terms that apply are the ones shipped beside the binaries rather than
+those of the public upstreams, because the SDK does not ship upstream builds:
+the commit `media/mpp` records is not in `rockchip-linux/mpp`, and the one
+`media/rga` records is not in `airockchip/librga`. Both are Rockchip-internal
+builds whose licence travels in their headers.
+
 It is needed only for standalone builds. The SDK app build reads the SDK's own
 copies through `MS_RK_MEDIA_DIR`.
 

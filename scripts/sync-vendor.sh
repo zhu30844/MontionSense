@@ -1,9 +1,14 @@
 #!/bin/bash
 # Populate vendor/ from a Luckfox SDK checkout.
 #
-# vendor/ holds Rockchip's prebuilt media libraries and their headers. They
-# carry a copyright notice and no redistribution grant, so they are not kept
-# in this repository; this script copies them out of an SDK checkout instead.
+# vendor/ holds Rockchip's prebuilt media libraries and their headers. They are
+# not kept in this repository, and the reason is not licensing -- the headers
+# carry Apache-2.0 in full, which permits redistribution. It is that a copy
+# committed here would pin one SDK's binaries inside a tree that moves
+# independently of it. Taking them from an SDK checkout at build time keeps
+# them matched to the toolchain and kernel they were built against, and lets a
+# fork aim the script at its own SDK -- another board, another Rockchip
+# release -- without editing anything in this repository.
 #
 # The SDK ships them under media/ as source, so a plain clone is enough — no
 # SDK build required, and nothing here depends on output/out/media_out.
