@@ -8,10 +8,31 @@ import (
 	"github.com/motionsense/agent/internal/stream"
 	"log"
 	"net/http"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"golang.org/x/sys/unix"
 )
+
+// The SoC's only thermal zone. Reads as millidegrees Celsius.
+const cpuTempPath = "/sys/class/thermal/thermal_zone0/temp"
+
+// readCPUTemp returns the SoC temperature formatted like "36.3°C", or "" if
+// the thermal zone cannot be read. A missing sensor is not worth failing the
+// whole status response over.
+func readCPUTemp() string {
+	raw, err := os.ReadFile(cpuTempPath)
+	if err != nil {
+		return ""
+	}
+	milli, err := strconv.Atoi(strings.TrimSpace(string(raw)))
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%.1f°C", float64(milli)/1000.0)
+}
 
 // statusResponse : device and app status
 type statusResponse struct {
@@ -101,6 +122,7 @@ func statusHandler(broker *stream.Broker, start time.Time) func(http.ResponseWri
 		}
 		status.Totalram = uint64(sysInfo.Totalram) * unit
 		status.Freeram = uint64(sysInfo.Freeram) * unit
+		status.CpuTemp = readCPUTemp()
 
 		w.Header().Set("Content-Type", "application/json")
 		err := json.NewEncoder(w).Encode(status)
