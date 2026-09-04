@@ -99,15 +99,47 @@ func dayHasVideo(dir string) bool {
 	return false
 }
 
+// memAvailable reads MemAvailable from /proc/meminfo, the kernel's own
+// estimate of what a new allocation could get. Recording keeps a large page
+// cache that sysinfo counts as used but the kernel reclaims on demand.
+func memAvailable() (uint64, bool) {
+	f, err := os.Open("/proc/meminfo")
+	if err != nil {
+		return 0, false
+	}
+	defer f.Close()
+
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		line := sc.Text()
+		if !strings.HasPrefix(line, "MemAvailable:") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			return 0, false
+		}
+		kb, err := strconv.ParseUint(fields[1], 10, 64)
+		if err != nil {
+			return 0, false
+		}
+		return kb * 1024, true
+	}
+	return 0, false
+}
+
 // statusResponse : device and app status
 type statusResponse struct {
-	Clients      int     `json:"clients"`
-	SystemUptime string  `json:"systemUptime"`
-	AppUptime    string  `json:"appUptime"`
-	Totalram     uint64  `json:"totalram"`
-	Freeram      uint64  `json:"freeram"`
-	WorkLoad     float64 `json:"workLoad"`
-	CpuTemp      string  `json:"cpuTemp"`
+	Clients      int    `json:"clients"`
+	SystemUptime string `json:"systemUptime"`
+	AppUptime    string `json:"appUptime"`
+	Totalram     uint64 `json:"totalram"`
+	// Memory the kernel would give to a new allocation, from MemAvailable.
+	// Not sysinfo's freeram, which excludes reclaimable page cache and so
+	// reads as 84% used on a device whose real figure is 20%.
+	Freeram  uint64  `json:"freeram"`
+	WorkLoad float64 `json:"workLoad"`
+	CpuTemp  string  `json:"cpuTemp"`
 	// True while frames are still arriving from the C daemon over the unix
 	// socket. This says the picture is live, not that the device is up: the
 	// agent answering this request is what says that. The page cannot infer
@@ -232,6 +264,9 @@ func statusHandler(broker *stream.Broker, start time.Time, dcimRoot string) func
 		}
 		status.Totalram = uint64(sysInfo.Totalram) * unit
 		status.Freeram = uint64(sysInfo.Freeram) * unit
+		if avail, ok := memAvailable(); ok {
+			status.Freeram = avail
+		}
 		status.CpuTemp = readCPUTemp()
 		status.LastRecord = lastRecordDate(dcimRoot)
 
