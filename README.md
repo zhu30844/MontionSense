@@ -48,11 +48,16 @@ install and nothing to configure.
   kernel cannot mount that read-write, and nothing starts. See
   [docs/BUILD.md](docs/BUILD.md#the-sd-card).
 
-  The udev rule will also mount vfat, exfat, ntfs, ext2 and ext3, and the
-  video would be written fine, but the databases would not: the C daemon runs
-  SQLite in WAL mode while the agent reads the same files, and WAL needs
-  shared memory and POSIX locks that vfat does not provide. FAT32 also caps a
-  file at 4 GB and forces every file to uid 1000 regardless of who wrote it.
+  FAT32 and exFAT do mount and do work — SQLite included, since both support
+  the shared mappings and byte-range locks that WAL wants. They are not
+  recommended because neither journals. This device is powered by whatever it
+  is plugged into and gets pulled without a shutdown; ext4 replays its journal
+  after that, FAT does not, and the directory holding a day of footage is the
+  thing at risk. FAT32 additionally caps a file at 4 GB, and both force every
+  file to uid 1000 regardless of who wrote it.
+
+  The rule lists ntfs, ext2 and ext3 as well, but this kernel builds none of
+  them, so those branches never fire.
 - Enough card for the footage you want to keep. Recording stops and old days
   are deleted below `storage.disk_free_min_mb`, 2 GB by default.
 - x86-64 Linux host
