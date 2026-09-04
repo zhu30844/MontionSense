@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/motionsense/agent/internal/database"
 	"github.com/motionsense/agent/internal/recording"
@@ -281,11 +282,22 @@ func recordingDayHandler(storage *database.Storage, dcimRoot string) http.Handle
 			return
 		}
 		segments, err := storage.SegmentsForDay(r.Context(), date)
+		// A day that never recorded is an empty day, not a failure. Reply 200
+		// with no segments so the client renders "nothing here" rather than
+		// having to parse an error body.
+		if errors.Is(err, database.ErrNoRecordings) {
+			segments = nil
+			err = nil
+		}
 		if err != nil {
 			http.Error(w, "Get Segments failed", http.StatusInternalServerError)
 			return
 		}
 		events, err := storage.EventsOfDay(r.Context(), date)
+		if errors.Is(err, database.ErrNoRecordings) {
+			events = nil
+			err = nil
+		}
 		if err != nil {
 			http.Error(w, "Get Events failed", http.StatusInternalServerError)
 			return

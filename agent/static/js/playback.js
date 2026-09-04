@@ -174,6 +174,15 @@ class PlaybackApp {
     async loadVideoSegments(date) {
         const response = await fetch(`/api/recordings/${date}`);
 
+        // An error reply is plain text, so check before parsing: feeding
+        // "Get Segments failed" to json() throws a SyntaxError that reads as
+        // a bug in the page rather than a bad request.
+        if (!response.ok) {
+            this.videoSegments = [];
+            this.showNoSegments();
+            return;
+        }
+
         const data = await response.json();
 
         if (data && Array.isArray(data.segments)) {

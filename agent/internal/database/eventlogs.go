@@ -3,6 +3,8 @@ package database
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"os"
 
 	"github.com/motionsense/agent/internal/recording"
 )
@@ -24,12 +26,21 @@ type EventDetail struct {
 // openDay opens the per-day EventLogs.db for a date like "2026-06-21".
 // Per-day dbs are opened on demand and closed by the caller: days come and
 // go as the C process records and cleans up.
+// ErrNoRecordings reports a day that never recorded — no EventLogs.db. It is
+// an empty result, not a failure, and callers render it as such.
+var ErrNoRecordings = errors.New("no recordings for date")
+
 func (s *Storage) openDay(date string) (*sql.DB, error) {
 	// validate even though server already did: a raw date would be joined
 	// into the DSN, where a stray "?" could override mode=ro.
 	path, err := recording.EventLogsDBPath(s.dcimRoot, date)
 	if err != nil {
 		return nil, err
+	}
+	// mode=ro fails outright on a missing file. The calendar only offers days
+	// it has metadata for, but /playback.html?date= can be typed directly.
+	if _, statErr := os.Stat(path); statErr != nil {
+		return nil, ErrNoRecordings
 	}
 	dsn := "file:" + path + "?mode=ro&_pragma=busy_timeout(5000)"
 	db, err := sql.Open("sqlite", dsn)

@@ -193,8 +193,10 @@ class CalendarApp {
             dayElement.appendChild(motionIndicator);
         }
 
-        // Add click event for date selection
-        if (!isFutureDate) {
+        // Only days the metadata lists are selectable. A day with no
+        // recordings has no EventLogs.db, and asking for it produced a 500
+        // that the playback page could not parse.
+        if (hasMotionData) {
             dayElement.classList.add('clickable');
             dayElement.addEventListener('click', () => {
                 this.selectDate(currentDateStr);
