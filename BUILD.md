@@ -198,6 +198,63 @@ card is auto-mounted by a udev rule shipped in the rootfs
 (`sysdrv/tools/board/eudev/rules/61-sd-cards-auto-mount.rules`), covering
 vfat/exfat/ntfs/ext2/3/4.
 
+The two processes talk over `CFG_SOCKET_PATH`
+(`/tmp/motionsense-stream.sock`), which the C daemon creates and the agent
+dials for MJPEG frames. It is defined once, in `config.h`; both sides read
+that name. Recording does not go through it, so a broken socket costs the
+live view and nothing else.
+
+A healthy boot looks like this:
+
+```
+$ /etc/init.d/S99motionsense status
+MotionSense: running
+agent: running
+$ grep sdcard /proc/mounts
+/dev/mmcblk1p1 /mnt/sdcard ext4 rw,noatime 0 0
+$ tail -1 /mnt/sdcard/MotionSense/agent.log
+[stream] connected to /tmp/motionsense-stream.sock
+$ ls /mnt/sdcard/DCIM/$(date +%F)/00001/
+00000.ts  00001.ts  index.m3u8
+```
+
+### The SD card
+
+Two things about the card are easy to lose a day to.
+
+**The filesystem must not use `orphan_file`.** e2fsprogs 1.47 and later enable
+it by default, it lands in ext4's ro_compat set as bit 16, and this 5.10
+kernel does not know it, so the card mounts read-only and the auto-mount rule
+— which asks for read-write — fails. `/mnt/sdcard` then never appears and
+`S99motionsense` times out with the daemons never starting. On a PC:
+
+```bash
+sudo e2fsck -f /dev/sdX1
+sudo tune2fs -O ^orphan_file /dev/sdX1
+```
+
+**The card may need a retry to enumerate.** On this board it does not always
+answer at the first probe frequency:
+
+```
+mmc_host mmc1: Bus speed (slot 0) = 400000Hz
+mmc1: error -110 whilst initialising SD card
+mmc_host mmc1: Bus speed (slot 0) = 300000Hz
+mmc1: new high speed SDXC card at address 59b4
+```
+
+This is why `rv1106g-motionsense.dts` leaves out the vendor's `non-removable`.
+With it set, the core scans once at probe, ignores the card-detect pin, and
+never retries — a boot-time failure became permanent and reseating the card
+produced no event at all.
+
+Bus speed is capped at SD High Speed, 50MHz: `no-1-8-v` rules out the UHS
+modes, which need 1.8V signalling. Measured on a 119GiB SDXC card: 22.1 MB/s
+sequential read, 19.0 MB/s sequential write, 0.70ms median 4K random read,
+9.4ms median 4K synced write (p95 15ms, worst 32ms). Recording at a few Mbps
+uses a small fraction of that, but the synced-write latency is worth knowing
+if the metadata database is committed with `PRAGMA synchronous=FULL`.
+
 ### Reflashing just the app
 
 The app is on its own partition, so iterating does not need a full reflash:
@@ -301,9 +358,17 @@ cp sysdrv/tools/board/buildroot/*_defconfig \
 
 ---
 
+## Verified
+
+A full image built from this tree has been flashed to a Pico Pro Max and run:
+the board comes up on `rv1106g-motionsense.dts`, the SD card auto-mounts
+read-write, both daemons autostart, the ISP initialises the sensor at
+2304x1296, HLS segments and the per-day `EventLogs.db` land in `DCIM`, the
+agent connects to the frame socket, and `/api/stream` delivers 15.0 fps at
+44.7KB per frame.
+
 ## Not covered yet
 
-- **No image has been flashed to real hardware since the SDK migration.**
-  Everything above is verified at the build-artifact level: dtb contents,
-  file placement, `NEEDED` resolution against the image, partition headroom.
 - **No LICENSE file.** The repo is public without one.
+- `statusResponse.LastDeletion` is declared but never assigned, so `/status`
+  always reports it as `""`.
