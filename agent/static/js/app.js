@@ -14,9 +14,10 @@ class MotionSenseApp {
                 fullscreenText: '全屏',
                 calendarTitle: '运动检测热力图',
                 calendarDesc: '点击日期查看详细记录',
-                statusText: '连接中...',
-                statusConnected: '已连接',
-                statusDisconnected: '已断开',
+                statusText: '正在连接视频流',
+                statusStreaming: '视频流正常',
+                statusConnecting: '正在连接视频流',
+                labelStream: '视频流',
                 loadingText: '加载中...',
                 statusCardTitle: '设备状态',
                 labelCpuTemp: '温度',
@@ -35,9 +36,10 @@ class MotionSenseApp {
                 fullscreenText: 'Fullscreen',
                 calendarTitle: 'Motion Detection Heatmap',
                 calendarDesc: 'Click on a date to view detailed records',
-                statusText: 'Connecting...',
-                statusConnected: 'Connected',
-                statusDisconnected: 'Disconnected',
+                statusText: 'Connecting stream',
+                statusStreaming: 'Streaming',
+                statusConnecting: 'Connecting stream',
+                labelStream: 'Stream',
                 loadingText: 'Loading...',
                 statusCardTitle: 'Device Status',
                 labelCpuTemp: 'Temperature',
@@ -184,6 +186,9 @@ class MotionSenseApp {
         // The status poll is the only thing that can see a stalled stream:
         // the <img> stays "loaded" with a connection open and no frames.
         if (typeof s.streamLive === 'boolean') {
+            const t = this.translations[this.currentLang];
+            set('valStream', s.streamLive ? t.statusStreaming : t.statusConnecting,
+                s.streamLive ? null : 'alert');
             this.setStreamStatus(s.streamLive ? 'connected' : 'disconnected');
         }
 
@@ -316,8 +321,8 @@ class MotionSenseApp {
         if (dot) dot.style.background = state === 'connected' ? '#4CAF50' : '#f44336';
         if (text) {
             text.textContent = state === 'connected'
-                ? t.statusConnected
-                : t.statusDisconnected;
+                ? t.statusStreaming
+                : t.statusConnecting;
         }
     }
 
