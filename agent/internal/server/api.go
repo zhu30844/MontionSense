@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"github.com/motionsense/agent/internal/database"
@@ -118,7 +119,39 @@ type SegmentResponse struct {
 	TotalFrames  int64   `json:"totalFrames"`
 	PlaylistURL  string  `json:"playlistUrl"`
 	MotionFrames []int64 `json:"motionFrames"`
-	LastWrite    string  `json:"lastWrite"` // TODO: check m3u8 moderation time, should be a string like "2026-05-05"
+	// Playback length in seconds, summed from the playlist's EXTINF tags.
+	// Not derived from TotalFrames: the recorder varies its frame rate with
+	// motion, so frames divided by a nominal fps is not the wall-clock length.
+	DurationSeconds float64 `json:"durationSeconds"`
+	LastWrite       string  `json:"lastWrite"` // TODO: check m3u8 moderation time, should be a string like "2026-05-05"
+}
+
+// playlistDuration sums the EXTINF durations in a segment's index.m3u8.
+// Returns 0 if the playlist cannot be read or holds no entries.
+func playlistDuration(dcimRoot, date, segment string) float64 {
+	path, err := recording.MediaFilePath(dcimRoot, date, segment, "index.m3u8")
+	if err != nil {
+		return 0
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return 0
+	}
+	defer f.Close()
+
+	var total float64
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		line := sc.Text()
+		if !strings.HasPrefix(line, "#EXTINF:") {
+			continue
+		}
+		v := strings.TrimSuffix(strings.TrimPrefix(line, "#EXTINF:"), ",")
+		if d, err := strconv.ParseFloat(strings.TrimSpace(v), 64); err == nil {
+			total += d
+		}
+	}
+	return total
 }
 
 func mjpegStream(broker *stream.Broker) http.HandlerFunc {
@@ -192,7 +225,7 @@ func statusHandler(broker *stream.Broker, start time.Time, dcimRoot string) func
 	}
 }
 
-func recordingDayHandler(storage *database.Storage) http.HandlerFunc {
+func recordingDayHandler(storage *database.Storage, dcimRoot string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		date := r.PathValue("date")
 		if !recording.ValidDate(date) {
@@ -224,6 +257,8 @@ func recordingDayHandler(storage *database.Storage) http.HandlerFunc {
 				TotalFrames:  segment.TotalFrames,
 				PlaylistURL:  "/media/" + date + "/" + segment.Folder + "/index.m3u8",
 				MotionFrames: eventsByVideoID[segment.ID],
+
+				DurationSeconds: playlistDuration(dcimRoot, date, segment.Folder),
 			})
 		}
 		w.Header().Set("Content-Type", "application/json")

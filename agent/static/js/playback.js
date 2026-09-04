@@ -202,6 +202,7 @@ class PlaybackApp {
                 start_time: s.startTime,
                 total_frames: s.totalFrames,
                 playlist_url: s.playlistUrl,
+                duration_seconds: s.durationSeconds,
             }));
             console.log('Found', this.videoSegments.length, 'video segments');
             this.generateSegmentsTable();
@@ -288,7 +289,7 @@ class PlaybackApp {
             tdStartTime.textContent = segment.start_time || '-';
 
             const tdDuration = document.createElement('td');
-            tdDuration.textContent = this.formatDuration(segment.length || 0);
+            tdDuration.textContent = this.formatDuration(segment.duration_seconds || 0);
 
             const tdAction = document.createElement('td');
             const playButton = document.createElement('button');
@@ -456,9 +457,10 @@ class PlaybackApp {
     }
 
     formatDuration(seconds) {
-        const hours = Math.floor(seconds / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-        const secs = seconds % 60;
+        const total = Math.round(seconds);
+        const hours = Math.floor(total / 3600);
+        const minutes = Math.floor((total % 3600) / 60);
+        const secs = total % 60;
         
         if (hours > 0) {
             return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;

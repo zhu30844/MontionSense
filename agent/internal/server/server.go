@@ -28,7 +28,7 @@ func New(subStaticPath fs.FS, addr string, broker *stream.Broker, storage *datab
 	// calendar
 	mux.HandleFunc("GET /api/recordings/calendar", recordingsCalendarHandler(storage))
 	// recordings of one day
-	mux.HandleFunc("GET /api/recordings/{date}", recordingDayHandler(storage))
+	mux.HandleFunc("GET /api/recordings/{date}", recordingDayHandler(storage, dcimRoot))
 	return &http.Server{
 		Addr:    addr,
 		Handler: mux,
