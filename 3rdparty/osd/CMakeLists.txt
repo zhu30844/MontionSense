@@ -14,4 +14,4 @@ target_include_directories(osd PUBLIC
     "${CMAKE_SOURCE_DIR}/include")
 target_link_libraries(osd PUBLIC freetype::freetype iconv::iconv)
 
-install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/simsun_en.ttf" DESTINATION "fonts")
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/DejaVuSansMono.ttf" DESTINATION "fonts")

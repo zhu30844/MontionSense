@@ -98,6 +98,13 @@ The toolchain is resolved in this order: an explicit `-DCMAKE_C_COMPILER`
 `../../../tools/linux/toolchain/...` relative to this tree's place inside the
 SDK. It is no longer vendored here.
 
+A standalone build also needs `vendor/`, which is not in the repository — see
+*Rockchip libraries* below. Populate it once with:
+
+```bash
+./scripts/sync-vendor.sh            # or: ./scripts/sync-vendor.sh <sdk-path>
+```
+
 ### The Go agent
 
 ```
@@ -140,10 +147,21 @@ Flash `update.img` once after that change, then `deploy.sh` works again.
 | `libsqlite3`, `libyaml`, `libfreetype`, `libiconv` | buildroot sysroot | `/usr/lib` (rootfs) |
 | `libhls`/`libmpeg` (`3rdparty/media-server`, submodule), `libosd` (`3rdparty/osd`) | built from source, static | linked in |
 
-The Rockchip libraries have two possible sources, selected by
-`MS_RK_MEDIA_DIR`: unset uses the snapshot under `vendor/`, set (which the SDK
-`Makefile` does) uses `output/out/media_out`, so the app tracks what the SDK
-just built rather than a copy that drifts.
+### Rockchip libraries
+
+Selected by `MS_RK_MEDIA_DIR`: set — which the SDK `Makefile` does — the app
+builds against `output/out/media_out`, tracking what the SDK just built. Unset,
+it falls back to `vendor/`.
+
+`vendor/` is **not in the repository**. Those libraries carry a Rockchip
+copyright and no redistribution grant, so `scripts/sync-vendor.sh` copies them
+out of an SDK checkout instead. The SDK ships them under `media/` as source, so
+a plain clone is enough and no SDK build is needed. Building through the SDK
+app tree never reads `vendor/` at all; it is only for standalone builds.
+
+One thing the script deliberately does not copy: the `.a` archives and
+`librockit_full/tiny.so` that the old vendored tree carried. Nothing links
+them.
 
 The four distro libraries come from `cmake/SystemLibs.cmake`, which imports
 them from the buildroot sysroot under the same CMake target names the
@@ -406,8 +424,14 @@ read-write, both daemons autostart, the ISP initialises the sensor at
 agent connects to the frame socket, and `/api/stream` delivers 15.0 fps at
 44.7KB per frame.
 
+## Licensing
+
+`LICENSE` is MIT and covers the code written here. `THIRD-PARTY.md` draws the
+boundary against everything else: the Rockchip OSD sources (3-clause BSD), the
+DejaVu font, Video.js (Apache-2.0), media-server (MIT, a submodule), and the
+Rockchip media libraries, which are referenced but not distributed.
+
 ## Not covered yet
 
-- **No LICENSE file.** The repo is public without one.
 - `statusResponse.LastDeletion` is declared but never assigned, so `/status`
   always reports it as `""`.

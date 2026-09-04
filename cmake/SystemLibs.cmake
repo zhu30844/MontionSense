@@ -58,6 +58,17 @@ ms_import_syslib(ms_yaml     yaml)
 ms_import_syslib(ms_iconv    iconv)
 ms_import_syslib(ms_freetype freetype "${MS_SYSROOT}/usr/include/freetype2")
 
+# The shared libfreetype needs libz and libbz2, which the vendored static build
+# did not. Declaring them here rather than relying on some other -L on the link
+# line happening to supply them: the SDK app build did resolve them by accident,
+# through the media_out library directory the Rockchip targets bring in, while a
+# standalone build failed with undefined references to inflateEnd and
+# BZ2_bzDecompressInit.
+ms_import_syslib(ms_z    z)
+ms_import_syslib(ms_bz2  bz2)
+set_property(TARGET ms_freetype APPEND PROPERTY
+             INTERFACE_LINK_LIBRARIES ms_z ms_bz2)
+
 add_library(sqlite3::sqlite3   ALIAS ms_sqlite3)
 add_library(yaml::yaml         ALIAS ms_yaml)
 add_library(iconv::iconv       ALIAS ms_iconv)

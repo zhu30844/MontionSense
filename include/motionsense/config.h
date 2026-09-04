@@ -11,7 +11,7 @@
 #define CFG_DCIM_ROOT        "/mnt/sdcard/DCIM/"
 #define CFG_VIDEO_META_DB    "/mnt/sdcard/DCIM/VideoMetadata.db"
 #define CFG_ISP_IQ_DIR       "/etc/iqfiles"
-#define CFG_OSD_FONT_PATH    "/oem/usr/share/MotionSense/fonts/simsun_en.ttf"
+#define CFG_OSD_FONT_PATH    "/oem/usr/share/MotionSense/fonts/DejaVuSansMono.ttf"
 #define CFG_CONFIG_PATH      "/mnt/sdcard/MotionSense/config.yaml"
 #define CFG_SOCKET_PATH      "/tmp/motionsense-stream.sock"
 

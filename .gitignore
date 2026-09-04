@@ -44,3 +44,9 @@ Thumbs.db
 # --- Rockchip toolchain and flashing tools ---
 # Provided by the Luckfox SDK checkout this tree lives in; see CMakeLists.txt.
 /tools/
+
+# --- Rockchip prebuilt media libraries ---
+# Copyright Rockchip, no redistribution grant; populate with
+# scripts/sync-vendor.sh from an SDK checkout. Only needed for standalone
+# builds; the SDK app build uses MS_RK_MEDIA_DIR instead.
+/vendor/
