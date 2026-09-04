@@ -321,3 +321,65 @@ body {
         font-size: 0.8rem;
     }
 }
+
+/* ---- Device status card (live view) ---- */
+.status-card {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    margin-top: 1.5rem;
+    overflow: hidden;
+}
+
+.status-card-header {
+    padding: 1rem 1.5rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.status-card-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.status-card-time {
+    font-size: 0.8rem;
+    opacity: 0.85;
+}
+
+.status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px;
+    background: #eceef3;
+}
+
+.status-item {
+    background: white;
+    padding: 1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.status-label {
+    font-size: 0.8rem;
+    color: #7a8194;
+}
+
+.status-value {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: #2d3142;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Temperature and load turn amber then red as they climb. */
+.status-value.warn { color: #FF9800; }
+.status-value.alert { color: #f44336; }
+
+.status-value.stale { color: #9aa0ad; }

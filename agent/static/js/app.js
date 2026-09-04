@@ -14,7 +14,14 @@ class MotionSenseApp {
                 calendarTitle: '运动检测热力图',
                 calendarDesc: '点击日期查看详细记录',
                 statusText: '连接中...',
-                loadingText: '加载中...'
+                loadingText: '加载中...',
+                statusCardTitle: '设备状态',
+                labelCpuTemp: '温度',
+                labelWorkLoad: '负载',
+                labelMemory: '内存',
+                labelClients: '观看数',
+                labelSystemUptime: '系统运行',
+                labelLastRecord: '最近录像'
             },
             en: {
                 logoText: 'MotionSense',
@@ -26,7 +33,14 @@ class MotionSenseApp {
                 calendarTitle: 'Motion Detection Heatmap',
                 calendarDesc: 'Click on a date to view detailed records',
                 statusText: 'Connecting...',
-                loadingText: 'Loading...'
+                loadingText: 'Loading...',
+                statusCardTitle: 'Device Status',
+                labelCpuTemp: 'Temperature',
+                labelWorkLoad: 'Load',
+                labelMemory: 'Memory',
+                labelClients: 'Viewers',
+                labelSystemUptime: 'Uptime',
+                labelLastRecord: 'Last Recording'
             }
         };
         
@@ -38,6 +52,7 @@ class MotionSenseApp {
         this.updateLanguage(this.currentLang);
         this.showView(this.currentView);
         this.initStreamStatus();
+        this.initDeviceStatus();
     }
 
     bindEvents() {
@@ -73,6 +88,77 @@ class MotionSenseApp {
         if (window.calendarApp) {
             window.calendarApp.updateLanguage(this.currentLang);
         }
+    }
+
+    // ---- Device status card ----
+
+    initDeviceStatus() {
+        this.fetchDeviceStatus();
+        // 5s: the values move slowly and the device has better things to do.
+        setInterval(() => this.fetchDeviceStatus(), 5000);
+    }
+
+    async fetchDeviceStatus() {
+        try {
+            const response = await fetch('/api/status');
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            this.renderDeviceStatus(await response.json());
+        } catch (error) {
+            this.markDeviceStatusStale();
+        }
+    }
+
+    renderDeviceStatus(s) {
+        const set = (id, text, level) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.textContent = text;
+            el.classList.remove('warn', 'alert', 'stale');
+            if (level) el.classList.add(level);
+        };
+
+        // cpuTemp arrives formatted ("47.6°C"); parse only to pick a colour.
+        const temp = parseFloat(s.cpuTemp);
+        set('valCpuTemp', s.cpuTemp || '—',
+            isNaN(temp) ? null : temp >= 75 ? 'alert' : temp >= 60 ? 'warn' : null);
+
+        // Single core, and the stock image keeps a shell script spinning, so
+        // idle load sits well above zero. Thresholds are set accordingly.
+        const load = Number(s.workLoad) || 0;
+        set('valWorkLoad', load.toFixed(2),
+            load >= 20 ? 'alert' : load >= 12 ? 'warn' : null);
+
+        const total = Number(s.totalram) || 0;
+        const free = Number(s.freeram) || 0;
+        if (total > 0) {
+            const usedPct = Math.round((total - free) / total * 100);
+            set('valMemory', `${this.formatBytes(total - free)} / ${this.formatBytes(total)}`,
+                usedPct >= 90 ? 'alert' : usedPct >= 75 ? 'warn' : null);
+        } else {
+            set('valMemory', '—');
+        }
+
+        set('valClients', String(s.clients ?? 0));
+        set('valSystemUptime', s.systemUptime || '—');
+        set('valLastRecord', s.lastRecord || '—');
+
+        const stamp = document.getElementById('statusUpdated');
+        if (stamp) stamp.textContent = new Date().toLocaleTimeString();
+    }
+
+    markDeviceStatusStale() {
+        // Keep the last known values on screen, greyed, rather than blanking
+        // the card on a single failed poll.
+        ['valCpuTemp', 'valWorkLoad', 'valMemory', 'valClients',
+         'valSystemUptime', 'valLastRecord'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('stale');
+        });
+    }
+
+    formatBytes(bytes) {
+        const mb = bytes / (1024 * 1024);
+        return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${Math.round(mb)} MB`;
     }
 
     updateLanguage(lang) {

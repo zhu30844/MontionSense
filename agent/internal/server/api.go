@@ -50,9 +50,13 @@ func lastRecordDate(dcimRoot string) string {
 		return ""
 	}
 
+	// Skip days dated ahead of today: a boot that starts recording before ntpd
+	// corrects the clock writes under whatever date the RTC held, and reporting
+	// that as the last recording is misleading.
+	today := time.Now().Format("2006-01-02")
 	names := make([]string, 0, len(days))
 	for _, d := range days {
-		if d.IsDir() && recording.ValidDate(d.Name()) {
+		if d.IsDir() && recording.ValidDate(d.Name()) && d.Name() <= today {
 			names = append(names, d.Name())
 		}
 	}
