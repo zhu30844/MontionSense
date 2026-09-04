@@ -1,7 +1,7 @@
 // MotionSense App - Main Application Logic
 class MotionSenseApp {
     constructor() {
-        this.currentLang = 'zh';
+        this.currentLang = 'en';
         this.currentView = 'live';
         this.translations = {
             zh: {
@@ -94,8 +94,7 @@ class MotionSenseApp {
 
     initDeviceStatus() {
         this.fetchDeviceStatus();
-        // 5s: the values move slowly and the device has better things to do.
-        setInterval(() => this.fetchDeviceStatus(), 5000);
+        setInterval(() => this.fetchDeviceStatus(), 2000);
     }
 
     async fetchDeviceStatus() {
@@ -122,11 +121,14 @@ class MotionSenseApp {
         set('valCpuTemp', s.cpuTemp || '—',
             isNaN(temp) ? null : temp >= 75 ? 'alert' : temp >= 60 ? 'warn' : null);
 
-        // Single core, and the stock image keeps a shell script spinning, so
-        // idle load sits well above zero. Thresholds are set accordingly.
+        // NOTE: on this device the idle load average sits around 10. It is not
+        // CPU: rockit keeps ten kernel threads (vsys, venc, vpss, rkisp-vir0,
+        // vrga...) in uninterruptible sleep, which Linux counts towards
+        // loadavg. Only one thread is ever runnable. These thresholds will
+        // therefore read as alert whenever the media pipeline is up.
         const load = Number(s.workLoad) || 0;
         set('valWorkLoad', load.toFixed(2),
-            load >= 20 ? 'alert' : load >= 12 ? 'warn' : null);
+            load >= 4 ? 'alert' : load >= 2 ? 'warn' : null);
 
         const total = Number(s.totalram) || 0;
         const free = Number(s.freeram) || 0;

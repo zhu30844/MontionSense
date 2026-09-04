@@ -30,11 +30,11 @@
         <nav class="nav">
             <button class="nav-item active" data-view="live">
                 <i class="fas fa-broadcast-tower"></i>
-                <span id="navLive">实时监控</span>
+                <span id="navLive">Live Stream</span>
             </button>
             <button class="nav-item" data-view="calendar">
                 <i class="fas fa-calendar-alt"></i>
-                <span id="navCalendar">历史记录</span>
+                <span id="navCalendar">History</span>
             </button>
         </nav>
 
@@ -44,11 +44,11 @@
             <div id="liveView" class="view active">
                 <div class="stream-container">
                     <div class="stream-header">
-                        <h2 id="streamTitle">实时视频流</h2>
+                        <h2 id="streamTitle">Live Video Stream</h2>
                         <div class="stream-controls">
                             <button id="fullscreenBtn" class="btn btn-primary">
                                 <i class="fas fa-expand"></i>
-                                <span id="fullscreenText">全屏</span>
+                                <span id="fullscreenText">Fullscreen</span>
                             </button>
                         </div>
                     </div>
@@ -57,7 +57,7 @@
                         <div class="stream-overlay">
                             <div class="stream-status">
                                 <span class="status-dot"></span>
-                                <span id="statusText">连接中...</span>
+                                <span id="statusText">Connecting...</span>
                             </div>
                         </div>
                     </div>
@@ -65,32 +65,32 @@
 
                 <div class="status-card">
                     <div class="status-card-header">
-                        <h3 id="statusCardTitle">设备状态</h3>
+                        <h3 id="statusCardTitle">Device Status</h3>
                         <span class="status-card-time" id="statusUpdated"></span>
                     </div>
                     <div class="status-grid">
                         <div class="status-item">
-                            <span class="status-label" id="labelCpuTemp">温度</span>
+                            <span class="status-label" id="labelCpuTemp">Temperature</span>
                             <span class="status-value" id="valCpuTemp">—</span>
                         </div>
                         <div class="status-item">
-                            <span class="status-label" id="labelWorkLoad">负载</span>
+                            <span class="status-label" id="labelWorkLoad">Load</span>
                             <span class="status-value" id="valWorkLoad">—</span>
                         </div>
                         <div class="status-item">
-                            <span class="status-label" id="labelMemory">内存</span>
+                            <span class="status-label" id="labelMemory">Memory</span>
                             <span class="status-value" id="valMemory">—</span>
                         </div>
                         <div class="status-item">
-                            <span class="status-label" id="labelClients">观看数</span>
+                            <span class="status-label" id="labelClients">Viewers</span>
                             <span class="status-value" id="valClients">—</span>
                         </div>
                         <div class="status-item">
-                            <span class="status-label" id="labelSystemUptime">系统运行</span>
+                            <span class="status-label" id="labelSystemUptime">Uptime</span>
                             <span class="status-value" id="valSystemUptime">—</span>
                         </div>
                         <div class="status-item">
-                            <span class="status-label" id="labelLastRecord">最近录像</span>
+                            <span class="status-label" id="labelLastRecord">Last Recording</span>
                             <span class="status-value" id="valLastRecord">—</span>
                         </div>
                     </div>
@@ -101,8 +101,8 @@
             <div id="calendarView" class="view">
                 <div class="calendar-container">
                     <div class="calendar-header">
-                        <h2 id="calendarTitle">运动检测热力图</h2>
-                        <p id="calendarDesc">点击日期查看详细记录</p>
+                        <h2 id="calendarTitle">Motion Detection Heatmap</h2>
+                        <p id="calendarDesc">Click on a date to view detailed records</p>
                     </div>
                     <div id="calendar"></div>
                 </div>
@@ -113,7 +113,7 @@
         <div id="loadingOverlay" class="loading-overlay">
             <div class="loading-spinner">
                 <i class="fas fa-spinner fa-spin"></i>
-                <span id="loadingText">加载中...</span>
+                <span id="loadingText">Loading...</span>
             </div>
         </div>
     </div>

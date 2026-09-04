@@ -2,7 +2,7 @@
 class CalendarApp {
     constructor() {
         this.currentDate = new Date();
-        this.currentLang = 'zh';
+        this.currentLang = 'en';
         this.motionCounts = {};
         this.maxCount = 0;
         this.minCount = 0;

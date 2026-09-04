@@ -5,7 +5,7 @@ class PlaybackApp {
         this.currentSegment = null;
         this.videoSegments = [];
         this.player = null;
-        this.currentLang = 'zh';
+        this.currentLang = 'en';
         
         this.translations = {
             zh: {
