@@ -210,6 +210,22 @@ from the caller is already gone by the time the default is applied:
 LF_JOBS=$(nproc) ./build.sh rootfs
 ```
 
+Raising it is not worth much. Measured on a 24-core host, rootfs from an empty
+output directory with a warm ccache:
+
+| jobs | wall |
+|---|---|
+| 12 | 148 s |
+| 18 (the default) | 146 s |
+| 24 | 144 s |
+| 32 | 144 s |
+
+Four seconds across the range. Load peaks around 7-13 and never approaches the
+core count, because what limits this build is the dependency graph and the
+serial parts of each package -- configure, install, the per-package rsync --
+not the number of slots. Set `LF_JOBS` when you want to leave the machine
+usable during a build, not to make the build faster.
+
 `BR2_JLEVEL` is not the knob it looks like. Buildroot omits its own `-j` when
 `MAKEFLAGS` already carries one, and `sysdrv/Makefile` always passes
 `-j$(SYSDRV_JOBS)`, so package sub-makes take their parallelism from that
