@@ -64,6 +64,8 @@ itself — provided the SDK's build dependencies are installed.
 
 [BUILD.md](BUILD.md) covers the build chain, the board configuration, the
 on-device layout and what to check when something does not come up.
+[DEVNOTES.md](DEVNOTES.md) covers working on the board: how to connect to it,
+what to do when a link drops, and the bugs that present as something else.
 
 ## Licence
 
