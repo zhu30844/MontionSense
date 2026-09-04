@@ -159,6 +159,26 @@ class MotionSenseApp {
             if (level) el.classList.add(level);
         };
 
+        // Stream state first: it decides whether the rest is worth showing.
+        const live = s.streamLive !== false;
+        if (typeof s.streamLive === 'boolean') {
+            const t = this.translations[this.currentLang];
+            set('valStream', live ? t.streamOnline : t.streamOffline,
+                live ? null : 'alert');
+            this.setStreamStatus(live ? 'connected' : 'disconnected');
+        }
+
+        // Offline means the daemon is gone, so temperature, load and the rest
+        // describe a device that is no longer producing anything. Blank them
+        // rather than leaving the last values looking current.
+        if (!live) {
+            ['valCpuTemp', 'valWorkLoad', 'valMemory', 'valClients',
+             'valSystemUptime', 'valLastRecord'].forEach(id => set(id, '—'));
+            const stamp = document.getElementById('statusUpdated');
+            if (stamp) stamp.textContent = new Date().toLocaleTimeString();
+            return;
+        }
+
         // cpuTemp arrives formatted ("47.6°C"); parse only to pick a colour.
         const temp = parseFloat(s.cpuTemp);
         set('valCpuTemp', s.cpuTemp || '—',
@@ -185,15 +205,6 @@ class MotionSenseApp {
             set('valMemory', '—');
         }
 
-        // The status poll is the only thing that can see a stalled stream:
-        // the <img> stays "loaded" with a connection open and no frames.
-        if (typeof s.streamLive === 'boolean') {
-            const t = this.translations[this.currentLang];
-            set('valStream', s.streamLive ? t.streamOnline : t.streamOffline,
-                s.streamLive ? null : 'alert');
-            this.setStreamStatus(s.streamLive ? 'connected' : 'disconnected');
-        }
-
         set('valClients', String(s.clients ?? 0));
         set('valSystemUptime', s.systemUptime || '—');
         set('valLastRecord', s.lastRecord || '—');
@@ -205,7 +216,7 @@ class MotionSenseApp {
     markDeviceStatusStale() {
         // Keep the last known values on screen, greyed, rather than blanking
         // the card on a single failed poll.
-        ['valCpuTemp', 'valWorkLoad', 'valMemory', 'valClients',
+        ['valStream', 'valCpuTemp', 'valWorkLoad', 'valMemory', 'valClients',
          'valSystemUptime', 'valLastRecord'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.classList.add('stale');
