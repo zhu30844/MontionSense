@@ -165,7 +165,7 @@ class MotionSenseApp {
         
         if (!document.fullscreenElement) {
             streamWrapper.requestFullscreen().catch(err => {
-                console.log('Error attempting to enable fullscreen:', err);
+                console.error('Error attempting to enable fullscreen:', err);
             });
         } else {
             document.exitFullscreen();

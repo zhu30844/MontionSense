@@ -1,7 +1,6 @@
 // MotionSense Playback App
 class PlaybackApp {
     constructor() {
-        console.log('PlaybackApp constructor called');
         this.currentDate = null;
         this.currentSegment = null;
         this.videoSegments = [];
@@ -51,32 +50,24 @@ class PlaybackApp {
     }
     
     checkAutoLoad() {
-        console.log('checkAutoLoad called');
         // Get date from URL parameter
         const urlParams = new URLSearchParams(window.location.search);
         const dateParam = urlParams.get('date');
-        console.log('URL params:', window.location.search);
-        console.log('Date param:', dateParam);
         
         if (dateParam) {
-            console.log('Auto-loading date from URL:', dateParam);
             const dateInput = document.getElementById('playbackDate');
             if (dateInput) {
                 dateInput.value = dateParam;
-                console.log('Date input set to:', dateParam);
             } else {
                 console.error('Date input element not found');
             }
             this.loadDate(dateParam);
         } else {
-            console.log('No date parameter found in URL');
         }
     }
 
     initPlayer() {
-        console.log('Initializing video player...');
         const videoElement = document.getElementById('my-video');
-        console.log('Video element:', videoElement);
         
         if (!videoElement) {
             console.error('Video element not found');
@@ -102,7 +93,6 @@ class PlaybackApp {
             }
         });
         
-        console.log('Video.js player initialized:', this.player);
 
         // Add custom motion markers plugin
         this.initMotionMarkers();
@@ -149,16 +139,17 @@ class PlaybackApp {
             });
         }
 
-        // Player events
+        // Markers depend on the player's duration, so redraw once it is
+        // known. This was on 'timeupdate', which fires several times a second
+        // and rebuilt every marker element each time.
         if (this.player) {
-            this.player.on('timeupdate', () => {
+            this.player.on('loadedmetadata', () => {
                 this.updateMotionMarkers();
             });
         }
     }
 
     async loadDate(date) {
-        console.log('PlaybackApp.loadDate called with date:', date);
         
         if (!date) {
             this.showError('Please select a date');
@@ -167,14 +158,12 @@ class PlaybackApp {
 
         this.currentDate = date;
         this.showLoading();
-        console.log('Loading video segments for date:', date);
 
         try {
             // Load video segments
             await this.loadVideoSegments(date);
             
             this.hideLoading();
-            console.log('Successfully loaded playback data');
         } catch (error) {
             console.error('Error loading playback data:', error);
             this.showError('Failed to load playback data');
@@ -183,12 +172,9 @@ class PlaybackApp {
     }
 
     async loadVideoSegments(date) {
-        console.log('Loading video segments for date:', date);
         const response = await fetch(`/api/recordings/${date}`);
-        console.log('Video segments API response status:', response.status);
 
         const data = await response.json();
-        console.log('Video segments data:', data);
 
         if (data && Array.isArray(data.segments)) {
             // The API names these segment/startTime; the table below was
@@ -201,26 +187,21 @@ class PlaybackApp {
                 duration_seconds: s.durationSeconds,
                 motion_frames: s.motionFrames || [],
             }));
-            console.log('Found', this.videoSegments.length, 'video segments');
             this.generateSegmentsTable();
             
             // Play first segment if available and player is ready
             if (this.videoSegments.length > 0 && this.player && this.player.readyState() >= 1) {
-                console.log('Playing first segment:', this.videoSegments[0].folder);
                 this.playVideoSegment(this.videoSegments[0].folder, 0);
             } else if (this.videoSegments.length > 0) {
-                console.log('Player not ready yet, will play first segment when ready');
                 // Wait for player to be ready
                 if (this.player) {
                     this.player.ready(() => {
-                        console.log('Player ready, now playing first segment');
                         this.playVideoSegment(this.videoSegments[0].folder, 0);
                     });
                 }
             }
         } else {
             this.videoSegments = [];
-            console.log('No video segments found');
             this.showNoSegments();
         }
     }
@@ -307,9 +288,6 @@ class PlaybackApp {
     }
 
     playVideoSegment(folder, index) {
-        console.log('playVideoSegment called with folder:', folder, 'index:', index);
-        console.log('currentDate:', this.currentDate);
-        console.log('player:', this.player);
         
         if (!this.currentDate) {
             console.error('No current date set');
@@ -328,16 +306,13 @@ class PlaybackApp {
         const videoSource = segment && segment.playlist_url
             ? segment.playlist_url
             : `/media/${this.currentDate}/${folder}/index.m3u8`;
-        console.log('Video source:', videoSource);
         
         this.player.src({
             src: videoSource,
             type: 'application/x-mpegURL'
         });
         
-        console.log('Video source set, attempting to play...');
         this.player.play().then(() => {
-            console.log('Video play started successfully');
         }).catch((error) => {
             console.error('Error playing video:', error);
         });
@@ -371,15 +346,11 @@ class PlaybackApp {
         const totalFrames = (segment && segment.total_frames) || 0;
 
         if (motionFrames.length === 0 || totalFrames === 0) {
-            console.log('No motion points found for segment:', this.currentSegment);
             return;
         }
 
-        console.log('Found motion points for segment:', motionFrames.length);
-
         const duration = this.player.duration();
         if (!duration || duration === Infinity) {
-            console.log('Video duration not available yet');
             return;
         }
 
@@ -434,7 +405,6 @@ class PlaybackApp {
             this.markersContainer.appendChild(marker);
         });
         
-        console.log('Created', motionFrames.length, 'motion markers');
     }
 
     formatDuration(seconds) {
