@@ -3,10 +3,10 @@ package server
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"github.com/motionsense/agent/internal/database"
 	"github.com/motionsense/agent/internal/recording"
 	"github.com/motionsense/agent/internal/stream"
+	"log"
 	"net/http"
 	"time"
 
@@ -15,14 +15,14 @@ import (
 
 // statusResponse : device and app status
 type statusResponse struct {
-	Clients      int    `json:"clients"`
-	SystemUptime string `json:"systemUptime"`
-	AppUptime    string `json:"appUptime"`
-	Totalram     uint64 `json:"totalram"`
-	Freeram      uint64 `json:"freeram"`
-	WorkLoad     uint64 `json:"workLoad"`
-	CpuTemp      string `json:"cpuTemp"`
-	LastDeletion string `json:"lastDeletion"`
+	Clients      int     `json:"clients"`
+	SystemUptime string  `json:"systemUptime"`
+	AppUptime    string  `json:"appUptime"`
+	Totalram     uint64  `json:"totalram"`
+	Freeram      uint64  `json:"freeram"`
+	WorkLoad     float64 `json:"workLoad"`
+	CpuTemp      string  `json:"cpuTemp"`
+	LastDeletion string  `json:"lastDeletion"`
 }
 
 // DayRecordingResponse : response body for playback page
@@ -86,11 +86,21 @@ func statusHandler(broker *stream.Broker, start time.Time) func(http.ResponseWri
 		status.Clients = broker.ClientCount()
 		status.SystemUptime = (time.Duration(sysInfo.Uptime) * time.Second).String()
 		// unix.Sysinfo_t's numeric fields are uint64 on 64-bit but uint32 on
-		// 32-bit, which is what the RV1106 target is. Convert explicitly so
-		// this compiles for both.
-		status.WorkLoad = uint64(sysInfo.Loads[0]) / 65536
-		status.Totalram = uint64(sysInfo.Totalram)
-		status.Freeram = uint64(sysInfo.Freeram)
+		// 32-bit, which is what the RV1106 target is, so convert explicitly.
+		//
+		// Loads are fixed point with 16 fractional bits; dividing as an
+		// integer reported 0 for every load average below 1.00.
+		status.WorkLoad = float64(sysInfo.Loads[0]) / 65536.0
+
+		// Totalram and Freeram are counts of Unit bytes, not bytes. Unit is 1
+		// on Linux today, so this changes nothing here, but the field is
+		// reported as bytes and should actually be bytes.
+		unit := uint64(sysInfo.Unit)
+		if unit == 0 {
+			unit = 1
+		}
+		status.Totalram = uint64(sysInfo.Totalram) * unit
+		status.Freeram = uint64(sysInfo.Freeram) * unit
 
 		w.Header().Set("Content-Type", "application/json")
 		err := json.NewEncoder(w).Encode(status)
