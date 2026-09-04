@@ -9,6 +9,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -34,6 +36,63 @@ func readCPUTemp() string {
 	return fmt.Sprintf("%.1f°C", float64(milli)/1000.0)
 }
 
+// lastRecordDate returns the most recent day under dcimRoot that actually
+// holds video, formatted like "2026 Sep 4", or "" if there is none.
+//
+// Deliberately a filesystem scan rather than a query against VideoMetadata:
+// a day row is written when recording starts, and the segment directory is
+// created before the first .ts lands in it, so both can name a day that has
+// no video in it yet.
+func lastRecordDate(dcimRoot string) string {
+	days, err := os.ReadDir(dcimRoot)
+	if err != nil {
+		return ""
+	}
+
+	names := make([]string, 0, len(days))
+	for _, d := range days {
+		if d.IsDir() && recording.ValidDate(d.Name()) {
+			names = append(names, d.Name())
+		}
+	}
+	// Names are YYYY-MM-DD, so lexical order is chronological.
+	sort.Sort(sort.Reverse(sort.StringSlice(names)))
+
+	for _, name := range names {
+		if dayHasVideo(filepath.Join(dcimRoot, name)) {
+			t, err := time.Parse("2006-01-02", name)
+			if err != nil {
+				return ""
+			}
+			return t.Format("2006 Jan 2")
+		}
+	}
+	return ""
+}
+
+// dayHasVideo reports whether any segment directory under dir holds a .ts.
+func dayHasVideo(dir string) bool {
+	segments, err := os.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+	for _, seg := range segments {
+		if !seg.IsDir() {
+			continue
+		}
+		files, err := os.ReadDir(filepath.Join(dir, seg.Name()))
+		if err != nil {
+			continue
+		}
+		for _, f := range files {
+			if !f.IsDir() && strings.HasSuffix(f.Name(), ".ts") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // statusResponse : device and app status
 type statusResponse struct {
 	Clients      int     `json:"clients"`
@@ -43,7 +102,7 @@ type statusResponse struct {
 	Freeram      uint64  `json:"freeram"`
 	WorkLoad     float64 `json:"workLoad"`
 	CpuTemp      string  `json:"cpuTemp"`
-	LastDeletion string  `json:"lastDeletion"`
+	LastRecord   string  `json:"lastRecord"`
 }
 
 // DayRecordingResponse : response body for playback page
@@ -95,7 +154,7 @@ func mjpegStream(broker *stream.Broker) http.HandlerFunc {
 	}
 }
 
-func statusHandler(broker *stream.Broker, start time.Time) func(http.ResponseWriter, *http.Request) {
+func statusHandler(broker *stream.Broker, start time.Time, dcimRoot string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var status statusResponse
 		var sysInfo unix.Sysinfo_t
@@ -123,6 +182,7 @@ func statusHandler(broker *stream.Broker, start time.Time) func(http.ResponseWri
 		status.Totalram = uint64(sysInfo.Totalram) * unit
 		status.Freeram = uint64(sysInfo.Freeram) * unit
 		status.CpuTemp = readCPUTemp()
+		status.LastRecord = lastRecordDate(dcimRoot)
 
 		w.Header().Set("Content-Type", "application/json")
 		err := json.NewEncoder(w).Encode(status)

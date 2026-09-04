@@ -22,7 +22,7 @@ func New(subStaticPath fs.FS, addr string, broker *stream.Broker, storage *datab
 	// stream
 	mux.HandleFunc("/api/stream", mjpegStream(broker))
 	// status
-	mux.HandleFunc("GET /api/status", statusHandler(broker, startTime))
+	mux.HandleFunc("GET /api/status", statusHandler(broker, startTime, dcimRoot))
 	// recordings files: playlists + ts segments for hls.js
 	mux.HandleFunc("GET /media/{date}/{segment}/{file}", mediaHandler(dcimRoot))
 	// calendar

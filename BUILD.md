@@ -430,8 +430,3 @@ agent connects to the frame socket, and `/api/stream` delivers 15.0 fps at
 boundary against everything else: the Rockchip OSD sources (3-clause BSD), the
 DejaVu font, Video.js (Apache-2.0), media-server (MIT, a submodule), and the
 Rockchip media libraries, which are referenced but not distributed.
-
-## Not covered yet
-
-- `statusResponse.LastDeletion` is declared but never assigned, so `/status`
-  always reports it as `""`.
