@@ -2,6 +2,7 @@ package server
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/motionsense/agent/internal/database"
@@ -96,6 +97,36 @@ func dayHasVideo(dir string) bool {
 		}
 	}
 	return false
+}
+
+// uninterruptibleThreads counts threads in state D across all processes.
+// Returns 0 if /proc cannot be walked, which leaves the load average as-is.
+func uninterruptibleThreads() int {
+	procs, err := os.ReadDir("/proc")
+	if err != nil {
+		return 0
+	}
+	n := 0
+	for _, proc := range procs {
+		if !proc.IsDir() || proc.Name()[0] < '0' || proc.Name()[0] > '9' {
+			continue
+		}
+		tasks, err := os.ReadDir(filepath.Join("/proc", proc.Name(), "task"))
+		if err != nil {
+			continue
+		}
+		for _, t := range tasks {
+			raw, err := os.ReadFile(filepath.Join("/proc", proc.Name(), "task", t.Name(), "stat"))
+			if err != nil {
+				continue
+			}
+			// ... (comm) S ... — comm may hold spaces, so scan past the ')'.
+			if i := bytes.LastIndexByte(raw, ')'); i >= 0 && i+2 < len(raw) && raw[i+2] == 'D' {
+				n++
+			}
+		}
+	}
+	return n
 }
 
 // statusResponse : device and app status
@@ -207,7 +238,20 @@ func statusHandler(broker *stream.Broker, start time.Time, dcimRoot string) func
 		//
 		// Loads are fixed point with 16 fractional bits; dividing as an
 		// integer reported 0 for every load average below 1.00.
-		status.WorkLoad = float64(sysInfo.Loads[0]) / 65536.0
+		// Discount threads parked in uninterruptible sleep. Rockit keeps about
+		// ten of them — vsys, venc, vpss, rkisp-vir0, vrga and friends — waiting
+		// on hardware for as long as the media pipeline is up. Linux counts
+		// those towards the load average, so the raw figure sits near 10 while
+		// only one thread is runnable and every process reads 0% CPU. What is
+		// left is the load actually competing for the core.
+		load := float64(sysInfo.Loads[0]) / 65536.0
+		if d := uninterruptibleThreads(); d > 0 {
+			load -= float64(d)
+		}
+		if load < 0 {
+			load = 0
+		}
+		status.WorkLoad = load
 
 		// Totalram and Freeram are counts of Unit bytes, not bytes. Unit is 1
 		// on Linux today, so this changes nothing here, but the field is

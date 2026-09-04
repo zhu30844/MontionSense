@@ -121,11 +121,9 @@ class MotionSenseApp {
         set('valCpuTemp', s.cpuTemp || '—',
             isNaN(temp) ? null : temp >= 75 ? 'alert' : temp >= 60 ? 'warn' : null);
 
-        // NOTE: on this device the idle load average sits around 10. It is not
-        // CPU: rockit keeps ten kernel threads (vsys, venc, vpss, rkisp-vir0,
-        // vrga...) in uninterruptible sleep, which Linux counts towards
-        // loadavg. Only one thread is ever runnable. These thresholds will
-        // therefore read as alert whenever the media pipeline is up.
+        // workLoad already has rockit's uninterruptible threads discounted
+        // server-side, so these thresholds apply to load actually competing
+        // for the core.
         const load = Number(s.workLoad) || 0;
         set('valWorkLoad', load.toFixed(2),
             load >= 4 ? 'alert' : load >= 2 ? 'warn' : null);
