@@ -26,6 +26,10 @@ printf '9\n15\n' | ./build.sh lunch     # hardware "custom" -> MotionSense
 The image is `output/image/update.img`, with a timestamped copy under
 `IMAGE/IPC_SPI_NAND_BUILDROOT_RV1106_MOTIONSENSE_<date>_RELEASE_TEST/`.
 
+Submodules nest two deep — this app under the SDK, and media-server under this
+app — so `--recurse-submodules` is not optional. On an existing checkout:
+`git submodule update --init --recursive`.
+
 A devcontainer is provided (`.devcontainer/` in the SDK fork) with the
 toolchain, Go, and the `LF_*` environment variables already set. Building on
 the host works too; `./build.sh` puts the cross toolchain on `PATH` itself.
@@ -134,7 +138,7 @@ Flash `update.img` once after that change, then `deploy.sh` works again.
 |---|---|---|
 | `librockit`, `librkaiq`, `librockchip_mpp`, `librga` | `output/out/media_out` (SDK build) | `/oem/usr/lib` |
 | `libsqlite3`, `libyaml`, `libfreetype`, `libiconv` | buildroot sysroot | `/usr/lib` (rootfs) |
-| `libhls`/`libmpeg` (`3rdparty/media_server`), `libosd` (`3rdparty/osd`) | built from source, static | linked in |
+| `libhls`/`libmpeg` (`3rdparty/media-server`, submodule), `libosd` (`3rdparty/osd`) | built from source, static | linked in |
 
 The Rockchip libraries have two possible sources, selected by
 `MS_RK_MEDIA_DIR`: unset uses the snapshot under `vendor/`, set (which the SDK
@@ -145,6 +149,32 @@ The four distro libraries come from `cmake/SystemLibs.cmake`, which imports
 them from the buildroot sysroot under the same CMake target names the
 vendored copies used (`sqlite3::sqlite3`, `yaml::yaml`, `freetype::freetype`,
 `iconv::iconv`).
+
+### media-server
+
+`3rdparty/media-server` is a submodule of ireader/media-server pinned at
+`ea53ac6`, kept pristine. Only `libmpeg` and `libhls` are compiled; the rest of
+that project (flv, mov, mkv, dash, rtsp, ...) is unused. The build glue is ours
+and lives in `cmake/MediaServer.cmake`, because a submodule cannot carry local
+files.
+
+One file is not taken as-is. `hls_media_input()` asserts DTS continuity in a
+way that does not allow `duration == 0` — "cut a segment on every keyframe",
+which is what `storage.c` uses and what `config.yaml` ships as
+`hls_duration_s: 0`. The patched copy lives in `3rdparty/media-server-local`
+and `cmake/MediaServer.cmake` compiles it in place of the submodule's, so the
+submodule never shows up dirty. See the README there for how to refresh it
+after a version bump. Release builds define `NDEBUG` and compile the assert
+out, so this only bites a `-DCMAKE_BUILD_TYPE=Debug` build, which aborts as
+soon as recording starts.
+
+Pinning took some care and is worth repeating if the version is ever bumped:
+match on the `libmpeg/source`, `libmpeg/include` and `libhls/include` **tree
+hashes**, not on a single file. `hls-media.c` alone points at `8928fa5`, which
+is simply the newest upstream revision of a rarely-touched file; 20 of the
+other 48 files disagree with it, and building there produced a binary 8KB
+smaller. The tree hashes land on `ea53ac6`, where 48 of 49 files are
+byte-identical to what was vendored before and the binary reproduces exactly.
 
 Which buildroot packages this app needs is declared in
 `buildroot-packages.fragment`, here in the app rather than in an SDK file
@@ -265,6 +295,15 @@ The app is on its own partition, so iterating does not need a full reflash:
 
 `rkflash.sh` also accepts `boot`, `rootfs`, `userdata`, `uboot`, `loader`,
 `update`, `erase`.
+
+Pushing the binary over adb and restarting the service is faster still, but
+**judge recording from a full reboot, not from a service restart.** Stopping
+and starting S99motionsense leaves the ISP and VI in a state where capture
+does not resume: the daemon runs, the day and segment directories appear, the
+databases get written, and no `.ts` is ever produced. It looks exactly like a
+regression in whatever you just changed. A reboot recovers it. This was
+confirmed with a binary byte-identical to one that had just been recording
+happily, so the restart alone accounts for it.
 
 ---
 
