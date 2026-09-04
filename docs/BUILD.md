@@ -181,6 +181,44 @@ standalone flow uses. Two details that bite if you copy it elsewhere:
 - `SHELL := /bin/bash` is required. `Makefile.param`'s copy and strip macros
   use `[[ ]]`, and GNU make does not pass `SHELL` down to sub-makes.
 
+### Build parallelism
+
+Buildroot serialises itself. Its Makefile declares `.NOTPARALLEL` unless every
+package gets its own target and host directory, so without that the packages
+build strictly one after another however many cores the host has, and the
+board config turns the isolation on:
+
+```
+BR2_PER_PACKAGE_DIRECTORIES=y
+```
+
+Switching this changes the output layout, so buildroot has to be built from an
+empty tree. `./build.sh clean rootfs` is not enough — it leaves
+`output/{build,host,staging,target}` in place, and the first package then dies
+in rsync with `mkdir .../per-package/<pkg>/target failed`. Delete
+`sysdrv/source/buildroot/buildroot-2023.02.6/output` and its `.config` by hand
+before the first build after the change. It is also experimental in
+buildroot's own words: a package that silently relies on something it never
+declared as a dependency builds today and fails under isolation.
+
+The job count comes from `RK_JOBS`, three quarters of the host by default.
+Override it with `LF_JOBS`, not `RK_JOBS` — `unset_env_config_rk` at the top
+of `build.sh` blanks every `RK_*` it finds in the environment, so an `RK_JOBS`
+from the caller is already gone by the time the default is applied:
+
+```bash
+LF_JOBS=$(nproc) ./build.sh rootfs
+```
+
+`BR2_JLEVEL` is not the knob it looks like. Buildroot omits its own `-j` when
+`MAKEFLAGS` already carries one, and `sysdrv/Makefile` always passes
+`-j$(SYSDRV_JOBS)`, so package sub-makes take their parallelism from that
+jobserver — `.NOTPARALLEL` only serialises the make that declares it, not
+recursive ones. What `BR2_JLEVEL` still governs is a bare `make` run by hand
+inside the buildroot tree, which is how a single package gets debugged; the
+vendor base pinned it at 4 and the fragment sets it to 0 (one job per CPU
+plus one).
+
 ### Building only this app
 
 ```bash

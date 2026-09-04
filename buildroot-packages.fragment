@@ -38,3 +38,15 @@ BR2_PACKAGE_SQLITE=y    # libsqlite3.so.0  -> sqlite3::sqlite3
 # with a bare "make" in the buildroot tree does read it, and the vendor base
 # pins it at 4. 0 means one job per CPU plus one, decided at build time.
 BR2_JLEVEL=0
+
+# Top-level parallel build. Buildroot serialises itself with .NOTPARALLEL
+# unless each package gets its own target and host directory, because without
+# that isolation a package can see whatever happened to be installed before it
+# and the result stops being reproducible. With it on, packages build
+# concurrently and a many-core host is actually used; the jobserver from
+# sysdrv/Makefile's -j is what limits it.
+#
+# Buildroot labels this experimental: a package that depends on something it
+# never declared builds fine today and fails here. Switching it on or off
+# changes the build layout, so buildroot has to be rebuilt from clean.
+BR2_PER_PACKAGE_DIRECTORIES=y
