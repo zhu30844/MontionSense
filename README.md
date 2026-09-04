@@ -44,11 +44,15 @@ install and nothing to configure.
 ## Requirements
 
 - Luckfox Pico Pro Max, SPI NAND boot
-- An SD card, **ext4**. The udev rule also mounts vfat, exfat, ntfs, ext2 and
-  ext3, but recordings and the SQLite databases want a filesystem with proper
-  ownership and locking. It must not carry the `orphan_file` feature — the
-  5.10 kernel cannot mount that read-write, and nothing starts. See
+- An SD card, **ext4**. It must not carry the `orphan_file` feature — the 5.10
+  kernel cannot mount that read-write, and nothing starts. See
   [docs/BUILD.md](docs/BUILD.md#the-sd-card).
+
+  The udev rule will also mount vfat, exfat, ntfs, ext2 and ext3, and the
+  video would be written fine, but the databases would not: the C daemon runs
+  SQLite in WAL mode while the agent reads the same files, and WAL needs
+  shared memory and POSIX locks that vfat does not provide. FAT32 also caps a
+  file at 4 GB and forces every file to uid 1000 regardless of who wrote it.
 - Enough card for the footage you want to keep. Recording stops and old days
   are deleted below `storage.disk_free_min_mb`, 2 GB by default.
 - x86-64 Linux host
