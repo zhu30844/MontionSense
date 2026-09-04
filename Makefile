@@ -27,6 +27,11 @@ MS_STAGE_DIR := $(CURRENT_DIR)/install-sdk
 # -s -w -trimpath takes the binary from 15.7MB to 11MB; note this is also why
 # the agent must not go through MAROC_STRIP_DEBUG_SYMBOL below, which runs
 # GNU strip and is not something to point at a Go binary.
+#
+# -buildvcs=false because Go otherwise stamps the commit into the binary by
+# running git, which fails outright wherever the build user does not own the
+# checkout -- a plain `docker run -v $PWD:...` as root, or CI. The failure
+# lands at the very end of a 20 minute build and leaves a partial image.
 MS_AGENT_DIR := $(CURRENT_DIR)/agent
 MS_AGENT_BIN := motionsense-agent
 MS_GO_ENV := GOOS=linux GOARCH=arm GOARM=7 CGO_ENABLED=0
@@ -62,7 +67,8 @@ go-agent:
 		exit 1; }
 	@echo -e "$(C_GREEN) [MotionSense] build agent ($(shell go version 2>/dev/null | cut -d" " -f3)) $(C_NORMAL)"
 	cd $(MS_AGENT_DIR) && $(MS_GO_ENV) \
-		go build -trimpath -ldflags="-s -w" -o $(RK_APP_OUTPUT)/bin/$(MS_AGENT_BIN) .
+		go build -trimpath -buildvcs=false -ldflags="-s -w" \
+			-o $(RK_APP_OUTPUT)/bin/$(MS_AGENT_BIN) .
 
 clean:
 	rm -rf $(MS_BUILD_DIR) $(MS_STAGE_DIR)
