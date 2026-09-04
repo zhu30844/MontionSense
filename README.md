@@ -4,15 +4,6 @@ Motion-triggered video recording for the Luckfox Pico Pro Max (Rockchip
 RV1106). Records H.264 to HLS on the SD card, serves a live MJPEG stream and a
 playback UI over HTTP, and logs motion events to SQLite.
 
-Two processes:
-
-- **`MotionSense`** — the C daemon. Drives the ISP, encoder and IVS motion
-  detection through Rockchip's rockit, writes HLS segments and the metadata
-  databases.
-- **`motionsense-agent`** — the Go agent. HTTP UI and API, reading frames from the
-  daemon over a unix socket. Serves on port 80 when running as root, 3000
-  otherwise.
-
 ## Features
 
 - **Adaptive frame rate.** Records at 1 fps while idle and 30 fps while motion
@@ -20,19 +11,46 @@ Two processes:
 - **HLS recording.** One `.ts` per keyframe by default, organised into
   date-based directories with a per-day event database and automatic cleanup
   when free space runs low.
-- **Live view and playback.** MJPEG stream at `/api/stream`, recordings browsable by date, plus a `/api/status` endpoint reporting uptime, memory, load, SoC
-  temperature and the last day with footage.
+- **Live view and playback.** MJPEG stream at `/api/stream`, recordings
+  browsable by date, plus a `/api/status` endpoint reporting uptime, memory,
+  load, SoC temperature and the last day with footage.
 - **OSD timestamp** burned into both the recording and the live stream.
 
-Everything is configurable through `config.yaml` on the SD card; the compiled-in
-defaults are used when it is absent.
+## How it fits together
+
+Two processes, split by what each language is good at:
+
+- **`MotionSense`**, in C, owns the pipeline — ISP, encoder and IVS motion
+  detection through Rockchip's rockit, writing HLS and the metadata databases
+  to the card. Nothing sits between it and the hardware.
+- **`motionsense-agent`**, in Go, owns the network — HTTP, the UI, the API. It
+  never touches rockit, so **no cgo**: a static binary built with
+  `CGO_ENABLED=0`, reading the databases through `modernc.org/sqlite` in pure
+  Go. It serves on port 80 as root, 3000 otherwise.
+
+They talk over a unix socket (`/tmp/motionsense-stream.sock`), which keeps the
+split honest: the daemon can die without taking the web interface with it, and
+the agent restarts without disturbing a recording.
+
+Configuration is one `config.yaml` on the SD card, seeded from the image on
+first boot and never overwritten after that. Compiled-in defaults apply when
+it is missing, so a blank card still records.
+
+`S99motionsense` starts both, waits for the card to mount, and hands the
+camera over from the stock `rkipc` app. It ships in the image through the
+board overlay, so a flashed board records from first boot with nothing to
+install and nothing to configure.
 
 ## Requirements
 
 - Luckfox Pico Pro Max, SPI NAND boot
-- An SD card, ext4, **without the `orphan_file` feature** — the 5.10 kernel
-  cannot mount it read-write otherwise, and nothing starts. See
+- An SD card, **ext4**. The udev rule also mounts vfat, exfat, ntfs, ext2 and
+  ext3, but recordings and the SQLite databases want a filesystem with proper
+  ownership and locking. It must not carry the `orphan_file` feature — the
+  5.10 kernel cannot mount that read-write, and nothing starts. See
   [docs/BUILD.md](docs/BUILD.md#the-sd-card).
+- Enough card for the footage you want to keep. Recording stops and old days
+  are deleted below `storage.disk_free_min_mb`, 2 GB by default.
 - x86-64 Linux host
 
 ## Building
