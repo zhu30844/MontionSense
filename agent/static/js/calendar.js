@@ -47,13 +47,25 @@ class CalendarApp {
             }
             const days = await response.json() || [];
 
-            this.motionCounts = days.reduce((acc, item) => {
+            // Ignore days dated in the future. The device has no battery-backed
+            // clock guarantee: a boot before ntpd corrects it writes recordings
+            // under whatever date it held, which then shows as a populated day
+            // that cannot be opened. They are also excluded from the heatmap
+            // scale below, so one bad day cannot skew the whole month.
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const usable = days.filter(item => {
+                const d = new Date(item.date + 'T00:00:00');
+                return !isNaN(d) && d <= today;
+            });
+
+            this.motionCounts = usable.reduce((acc, item) => {
                 acc[item.date] = item.motionCount;
                 return acc;
             }, {});
 
             // Calculate max and min for heatmap scaling
-            const counts = days.map(item => item.motionCount);
+            const counts = usable.map(item => item.motionCount);
             this.maxCount = Math.max(...counts, 1);
             this.minCount = Math.min(...counts, 0);
             
@@ -152,7 +164,7 @@ class CalendarApp {
         
         const isFutureDate = dateObj > today;
         const isToday = dateObj.getTime() === today.getTime();
-        const hasMotionData = this.motionCounts[currentDateStr] !== undefined;
+        const hasMotionData = !isFutureDate && this.motionCounts[currentDateStr] !== undefined;
         const motionCount = this.motionCounts[currentDateStr] || 0;
 
         // Add classes based on date properties
