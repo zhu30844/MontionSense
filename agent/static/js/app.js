@@ -169,6 +169,19 @@ class MotionSenseApp {
         // That belongs to the video overlay, which is what the viewer checks
         // to tell a live picture from a frozen one.
         if (typeof s.frameFlow === 'boolean') {
+            // Frames flowing again after a gap means the daemon restarted. The
+            // <img> is still holding the connection that died with it and will
+            // never recover by itself, so ask for a new one.
+            if (s.frameFlow && this.frameFlowWasDown) {
+                this.reconnectStream();
+            }
+            // The server has frames but this <img> has not received one for a
+            // while: our connection died without an error event, which is what
+            // restarting the agent under a live page looks like.
+            if (s.frameFlow && this.lastFrameAt && Date.now() - this.lastFrameAt > 5000) {
+                this.reconnectStream();
+            }
+            this.frameFlowWasDown = !s.frameFlow;
             this.setStreamStatus(s.frameFlow ? 'connected' : 'disconnected');
         }
 
@@ -317,13 +330,34 @@ class MotionSenseApp {
         // frame has arrived, error when the connection drops. The old code
         // just announced "connected" two seconds in, which was both late and
         // never wrong.
-        img.addEventListener('load', () => this.setStreamStatus('connected'));
-        img.addEventListener('error', () => this.setStreamStatus('disconnected'));
+        img.addEventListener('load', () => {
+            // Multipart replaces the image per frame, so this fires
+            // continuously while the stream is healthy.
+            this.lastFrameAt = Date.now();
+            this.setStreamStatus('connected');
+        });
+        img.addEventListener('error', () => {
+            this.setStreamStatus('disconnected');
+            // The browser will not retry a dropped <img> on its own, so the
+            // picture would stay black until a manual reload.
+            this.reconnectStream();
+        });
 
         // A cached or already-complete image fires no load event.
         if (img.complete && img.naturalWidth > 0) {
             this.setStreamStatus('connected');
         }
+    }
+
+    // Point the <img> at a fresh request. The connection is not resumable
+    // once it drops, and the src has to change for the browser to reissue it.
+    reconnectStream() {
+        const img = document.getElementById('streamImage');
+        if (!img || this.reconnectTimer) return;
+        this.reconnectTimer = setTimeout(() => {
+            this.reconnectTimer = null;
+            img.src = `/api/stream?t=${Date.now()}`;
+        }, 1000);
     }
 
     setStreamStatus(state) {
