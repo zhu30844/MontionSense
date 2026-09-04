@@ -89,7 +89,11 @@
     align-items: center;
     justify-content: center;
     border-radius: 12px;
-    cursor: pointer;
+    /* Days are inert unless .clickable says otherwise: a past day with no
+     * recording is neither .empty nor .future, and used to inherit the
+     * pointer and hover lift from here. */
+    cursor: default;
+    color: #b6bac4;
     transition: all 0.3s ease;
     position: relative;
     background: #f8f9fa;
@@ -97,16 +101,14 @@
     min-height: 60px;
 }
 
-.day:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-}
-
 .day.clickable {
     cursor: pointer;
+    color: #2d3142;
 }
 
 .day.clickable:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
     background: #e3f2fd;
     border-color: #2196f3;
 }
