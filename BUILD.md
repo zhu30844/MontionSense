@@ -113,15 +113,22 @@ GOOS=linux GOARCH=arm GOARM=7 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w"
 
 No CGO is needed: `modernc.org/sqlite` is a pure-Go implementation, so the
 binary is static and does not link against uclibc. `-s -w -trimpath` takes it
-from 15.7MB to 11MB, which is also why it must not go through the SDK's
-`MAROC_STRIP_DEBUG_SYMBOL` step — that runs GNU `strip`, which is not
-something to point at a Go binary. The Makefile builds it after the strip for
-that reason.
+from 15.7MB to 11MB.
 
-`agent/` has no `vendor/` directory, so the first build downloads modules and
-needs network access. The SDK build already needs network for buildroot, so
-this adds no new requirement, but it does mean a cold build cannot run
-offline.
+The Makefile builds the agent after `MAROC_STRIP_DEBUG_SYMBOL`, keeping the Go
+binary out of that step; it runs GNU `strip`.
+
+`-buildvcs=false` is required. Go otherwise runs git to stamp the commit into
+the binary and fails the build where the user does not own the checkout, which
+covers `docker run` as root and most CI:
+
+```
+fatal: detected dubious ownership in repository at '.../project/app/motionsense'
+error obtaining VCS status: exit status 128
+```
+
+`agent/` has no `vendor/` directory, so a cold build downloads modules and
+needs network access.
 
 The agent listens on `:5000`, serves the web assets embedded via `go:embed`,
 and reads frames from the C daemon over `/tmp/motionsense.sock`. It tolerates
@@ -130,12 +137,11 @@ the socket reader retries.
 
 ### Pushing to a running board over adb
 
-`deploy.sh` builds and pushes the binary without reflashing. It deliberately
-pushes no libraries, on the assumption that everything is already on the
-device — which is now only true for a device flashed with an image built
-*after* the switch to buildroot-provided libraries. An older image has no
-`libsqlite3.so.0` or `libyaml-0.so.2` and the daemon will fail to start.
-Flash `update.img` once after that change, then `deploy.sh` works again.
+`deploy.sh` builds and pushes the binary without reflashing. It pushes no
+libraries, so the device must already carry them. Images built before the
+switch to buildroot-provided libraries have no `libsqlite3.so.0` or
+`libyaml-0.so.2`, and the daemon will not start. Flash `update.img` once on
+such a device, after which `deploy.sh` works.
 
 ---
 
@@ -153,15 +159,15 @@ Selected by `MS_RK_MEDIA_DIR`: set — which the SDK `Makefile` does — the app
 builds against `output/out/media_out`, tracking what the SDK just built. Unset,
 it falls back to `vendor/`.
 
-`vendor/` is **not in the repository**. Those libraries carry a Rockchip
-copyright and no redistribution grant, so `scripts/sync-vendor.sh` copies them
-out of an SDK checkout instead. The SDK ships them under `media/` as source, so
-a plain clone is enough and no SDK build is needed. Building through the SDK
-app tree never reads `vendor/` at all; it is only for standalone builds.
+`vendor/` is not in the repository. `scripts/sync-vendor.sh` creates it,
+extracting the libraries and headers from an SDK checkout. It reads `media/`,
+where the SDK ships them as source, so a plain SDK clone is enough and no SDK
+build is required.
 
-One thing the script deliberately does not copy: the `.a` archives and
-`librockit_full/tiny.so` that the old vendored tree carried. Nothing links
-them.
+Only standalone builds need it. The SDK app build reads `output/out/media_out`.
+
+The script copies the four `.so` files and their headers. It does not copy the
+`.a` archives or `librockit_full/tiny.so`; nothing links them.
 
 The four distro libraries come from `cmake/SystemLibs.cmake`, which imports
 them from the buildroot sysroot under the same CMake target names the
@@ -186,13 +192,12 @@ after a version bump. Release builds define `NDEBUG` and compile the assert
 out, so this only bites a `-DCMAKE_BUILD_TYPE=Debug` build, which aborts as
 soon as recording starts.
 
-Pinning took some care and is worth repeating if the version is ever bumped:
-match on the `libmpeg/source`, `libmpeg/include` and `libhls/include` **tree
-hashes**, not on a single file. `hls-media.c` alone points at `8928fa5`, which
-is simply the newest upstream revision of a rarely-touched file; 20 of the
-other 48 files disagree with it, and building there produced a binary 8KB
-smaller. The tree hashes land on `ea53ac6`, where 48 of 49 files are
-byte-identical to what was vendored before and the binary reproduces exactly.
+When bumping the pin, match on the `libmpeg/source`, `libmpeg/include` and
+`libhls/include` tree hashes rather than on a single file. Matching on
+`hls-media.c` alone selects `8928fa5`, the newest upstream revision of a
+rarely-touched file, where 20 of the other 48 files differ and the resulting
+binary is 8KB smaller. At `ea53ac6`, 48 of the 49 compiled files are
+byte-identical to the previously vendored copies.
 
 Which buildroot packages this app needs is declared in
 `buildroot-packages.fragment`, here in the app rather than in an SDK file
@@ -231,14 +236,13 @@ the image, so `install()` of the Rockchip `.so` files is skipped whenever
 /mnt/sdcard/DCIM/                            recordings
 ```
 
-The binary is linked with `RPATH=$ORIGIN/../lib`, which resolves to
-`/oem/usr/lib` from `/oem/usr/bin`. That covers the daemon's own `NEEDED`
-entries but **not** the transitive ones: `librockit.so` itself needs
-`librockchip_mpp.so.1` and `librga.so`, and resolving a library's own
-dependencies does not consult the executable's RPATH. `S99motionsense`
-therefore still exports `LD_LIBRARY_PATH=/oem/usr/lib`; without it the daemon
-dies at exec with `can't load library 'librockchip_mpp.so.1'` even though the
-file is right there.
+The binary is linked with `RPATH=$ORIGIN/../lib`, resolving to `/oem/usr/lib`
+from `/oem/usr/bin`. This covers the daemon's own `NEEDED` entries but not the
+transitive ones: `librockit.so` needs `librockchip_mpp.so.1` and `librga.so`,
+and resolving a library's dependencies does not consult the executable's
+RPATH. `S99motionsense` therefore exports `LD_LIBRARY_PATH=/oem/usr/lib`.
+Without it the daemon exits at exec with `can't load library
+'librockchip_mpp.so.1'`.
 
 `S99motionsense` waits for `/mnt/sdcard` to be mounted (up to 30s) before
 starting, and hands the camera over from the stock `rkipc` app first. The SD
@@ -268,13 +272,11 @@ $ ls /mnt/sdcard/DCIM/$(date +%F)/00001/
 
 ### The SD card
 
-Two things about the card are easy to lose a day to.
-
 **The filesystem must not use `orphan_file`.** e2fsprogs 1.47 and later enable
-it by default, it lands in ext4's ro_compat set as bit 16, and this 5.10
-kernel does not know it, so the card mounts read-only and the auto-mount rule
-— which asks for read-write — fails. `/mnt/sdcard` then never appears and
-`S99motionsense` times out with the daemons never starting. On a PC:
+it by default. It occupies ext4 ro_compat bit 16, which this 5.10 kernel does
+not support, so the card mounts read-only and the auto-mount rule — which asks
+for read-write — fails. `/mnt/sdcard` never appears and `S99motionsense` times
+out without starting either daemon. To clear it, on a PC:
 
 ```bash
 sudo e2fsck -f /dev/sdX1
@@ -291,17 +293,24 @@ mmc_host mmc1: Bus speed (slot 0) = 300000Hz
 mmc1: new high speed SDXC card at address 59b4
 ```
 
-This is why `rv1106g-motionsense.dts` leaves out the vendor's `non-removable`.
-With it set, the core scans once at probe, ignores the card-detect pin, and
-never retries — a boot-time failure became permanent and reseating the card
-produced no event at all.
+`rv1106g-motionsense.dts` therefore omits the vendor's `non-removable`. With
+that property set, the core scans once at probe, ignores the card-detect pin
+and never retries, making a boot-time failure permanent; reseating the card
+raises no event.
 
-Bus speed is capped at SD High Speed, 50MHz: `no-1-8-v` rules out the UHS
-modes, which need 1.8V signalling. Measured on a 119GiB SDXC card: 22.1 MB/s
-sequential read, 19.0 MB/s sequential write, 0.70ms median 4K random read,
-9.4ms median 4K synced write (p95 15ms, worst 32ms). Recording at a few Mbps
-uses a small fraction of that, but the synced-write latency is worth knowing
-if the metadata database is committed with `PRAGMA synchronous=FULL`.
+Bus speed is capped at SD High Speed, 50MHz — `no-1-8-v` rules out the UHS
+modes, which need 1.8V signalling. Measured on a 119GiB SDXC card:
+
+| | |
+|---|---|
+| sequential read | 22.1 MB/s |
+| sequential write | 19.0 MB/s |
+| 4K random read | 0.70 ms median |
+| 4K synced write | 9.4 ms median, 15 ms p95, 32 ms worst |
+
+Recording at a few Mbps uses a small fraction of the bandwidth. The
+synced-write latency applies if the metadata database is committed with
+`PRAGMA synchronous=FULL`.
 
 ### Reflashing just the app
 
@@ -314,21 +323,20 @@ The app is on its own partition, so iterating does not need a full reflash:
 `rkflash.sh` also accepts `boot`, `rootfs`, `userdata`, `uboot`, `loader`,
 `update`, `erase`.
 
-Pushing the binary over adb and restarting the service is faster still, but
-**judge recording from a full reboot, not from a service restart.** Stopping
-and starting S99motionsense leaves the ISP and VI in a state where capture
-does not resume: the daemon runs, the day and segment directories appear, the
-databases get written, and no `.ts` is ever produced. It looks exactly like a
-regression in whatever you just changed. A reboot recovers it. This was
-confirmed with a binary byte-identical to one that had just been recording
-happily, so the restart alone accounts for it.
+Pushing the binary over adb and restarting the service is faster still.
+
+**Judge recording from a full reboot, not from a service restart.** Stopping
+and starting S99motionsense leaves the ISP and VI unable to resume capture:
+the daemon runs, the day and segment directories are created, the databases
+are written, and no `.ts` is produced. A reboot recovers it. Confirmed with a
+binary byte-identical to one that had been recording immediately before.
 
 ---
 
 ## Board configuration
 
-Everything product-specific lives in its own directory in the SDK fork, so
-syncing upstream Luckfox changes does not conflict:
+Product-specific configuration lives in its own directory in the SDK fork,
+leaving upstream Luckfox files untouched:
 
 ```
 project/cfg/BoardConfig_MotionSense/
@@ -345,11 +353,10 @@ sysdrv/source/kernel/arch/arm/boot/dts/rv1106g-motionsense.dts
 sysdrv/tools/board/buildroot/motionsense_defconfig
 ```
 
-**The symlinks are load-bearing.** `post_overlay()` and the pre-build hooks
-resolve names against the board config's *own* directory, and
-`post_overlay()` guards with `[ -d ]` and skips a missing overlay silently.
-Without them the build still succeeds while quietly dropping the vendor init
-scripts from the image.
+The symlinks are load-bearing. `post_overlay()` and the pre-build hooks
+resolve names against the board config's own directory, and `post_overlay()`
+guards with `[ -d ]`, skipping a missing overlay silently. Without them the
+build succeeds while dropping the vendor init scripts from the image.
 
 The board config is not in `./build.sh lunch`'s numbered menu — that list is
 hardcoded in `build.sh`. Pick it through the last entry, `custom`, which lists
@@ -371,9 +378,9 @@ shift if board configs are added or removed.
 | userdata | 10 MB | 1.88 MB |
 | rootfs | 180 MB | 52.00 MB |
 
-**Nothing validates images against partition sizes.** An oversized image
-builds and flashes without complaint and fails at boot. `boot` is the tight
-one at 11% headroom; adding kernel drivers needs a check afterwards.
+Nothing validates images against partition sizes. An oversized image builds
+and flashes without complaint and fails at boot. `boot` has the least
+headroom at 11%; check it after adding kernel drivers.
 
 ### Device tree
 
@@ -383,17 +390,17 @@ and overrides only what differs, so the vendor dts is never edited. Adding a
 through the generic `%.dtb` pattern rule, and none of the vendor luckfox dts
 files are registered in `arch/arm/boot/dts/Makefile` either.
 
-It also carries a fix the vendor dts has wrong: the sdmmc node there spells
-the property `max-freqency`, so it is ignored and the controller inherits
+It also corrects the vendor dts, where the sdmmc node spells the property
+`max-freqency`; that spelling is ignored and the controller inherits
 `max-frequency = <200000000>` from `rv1106.dtsi`.
 
 ---
 
 ## Upstream deltas that cannot be moved
 
-Most product changes live in the directories above. Eight vendor files still
-carry edits, because they are where build switches are *read* rather than
-declared. These need merging by hand when syncing upstream:
+Product changes live in the directories above. Eight vendor files carry edits
+that cannot move there, because they are where build switches are read rather
+than declared. These need merging by hand when syncing upstream:
 
 | File | Why |
 |---|---|
@@ -404,9 +411,9 @@ declared. These need merging by hand when syncing upstream:
 | `sysdrv/Makefile` | passes `BR2_CCACHE_DIR`; copies `*_defconfig` so a board can ship its own |
 | `sysdrv/tools/board/buildroot/luckfox_pico_defconfig` | `BR2_DL_DIR` |
 
-Note the `sysdrv/Makefile` defconfig copy only runs when buildroot has not
-been extracted yet. After changing `motionsense_defconfig` on an existing
-tree, copy it in by hand or the build will use a stale one:
+The `sysdrv/Makefile` defconfig copy runs only when buildroot has not been
+extracted yet. After changing `motionsense_defconfig` on an existing tree,
+copy it in manually; otherwise the build uses a stale one:
 
 ```bash
 cp sysdrv/tools/board/buildroot/*_defconfig \

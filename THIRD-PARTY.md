@@ -1,7 +1,7 @@
 # Third-party components
 
-`LICENSE` (MIT) covers the code written for this project. This file draws the
-boundary: what else is in the tree, who owns it, and under what terms.
+`LICENSE` (MIT) covers the code written for this project. This file lists
+everything else in the tree and the terms it carries.
 
 ## Covered by LICENSE (MIT)
 
@@ -16,48 +16,41 @@ boundary: what else is in the tree, who owns it, and under what terms.
 
 | Path | Owner | License |
 |---|---|---|
-| `3rdparty/osd/*.c`, `*.h` | Rockchip Electronics Co., Ltd. | 3-clause BSD — see `3rdparty/osd/LICENSE` |
-| `3rdparty/osd/DejaVuSansMono.ttf` | Bitstream, Inc.; DejaVu and Arev authors | Bitstream Vera + Arev — see `3rdparty/osd/DejaVuSansMono.LICENSE` |
+| `3rdparty/osd/*.c`, `*.h` | Rockchip Electronics Co., Ltd. | 3-clause BSD — `3rdparty/osd/LICENSE` |
+| `3rdparty/osd/DejaVuSansMono.ttf` | Bitstream, Inc.; DejaVu and Arev authors | Bitstream Vera + Arev — `3rdparty/osd/DejaVuSansMono.LICENSE` |
 | `agent/static/js/video-js-8.20.0/` | Brightcove / Video.js authors | Apache-2.0 |
 
-The BSD terms on the Rockchip OSD sources require the copyright notice and
-conditions to travel with any redistribution. `3rdparty/osd/LICENSE` is that
-text; the file headers already point at it.
+The OSD sources reference their license file from each header; that file is
+`3rdparty/osd/LICENSE`.
+
+The OSD font is DejaVu Sans Mono, replacing the font the SDK ships. The OSD
+draws an ASCII timestamp only.
 
 ## Referenced, not distributed
 
 | Path | Owner | How it gets there |
 |---|---|---|
-| `3rdparty/media-server/` | ireader | MIT. A submodule pinned at `ea53ac6` — a pointer, not a copy. `3rdparty/media-server-local/hls-media.c` is one file of it carrying a local fix, and is redistributed under the same MIT terms. |
-| `vendor/` | Rockchip Electronics Co., Ltd. | **Not in this repository.** `scripts/sync-vendor.sh` copies it out of a Luckfox SDK checkout. |
+| `3rdparty/media-server/` | ireader | MIT. Submodule pinned at `ea53ac6`. `3rdparty/media-server-local/hls-media.c` is one file of it carrying a local fix, under the same terms. |
+| `vendor/` | Rockchip Electronics Co., Ltd. | Not in this repository. Created by `scripts/sync-vendor.sh`, which extracts it from a Luckfox SDK checkout. |
 
-## Why vendor/ is not here
+## vendor/
 
 `vendor/` holds Rockchip's prebuilt `librockit`, `librkaiq`, `librockchip_mpp`
-and `librga` plus 462 headers. They carry `Copyright (c) 2021 Fuzhou Rockchip
-Electronics Co., Ltd` and, unlike the OSD sources, no redistribution grant:
-none of the rockit or mpp headers state any terms, and the trees ship no
-LICENSE file. Whatever rights Luckfox has to ship them inside their SDK do not
-obviously extend to a third-party repository re-publishing them, so this
-project does not.
+and `librga` with 462 headers, carrying `Copyright (c) 2021 Fuzhou Rockchip
+Electronics Co., Ltd`.
 
-Nothing is lost by that. The SDK app build never reads `vendor/` — it points
-at the SDK's own copies through `MS_RK_MEDIA_DIR`. A standalone build runs
-`scripts/sync-vendor.sh`, which copies them from an SDK checkout; the SDK
-ships them under `media/` as source, so a plain clone suffices and no SDK
-build is needed.
+It is needed only for standalone builds. The SDK app build reads the SDK's own
+copies through `MS_RK_MEDIA_DIR`.
 
-## Note on the font
+To populate it:
 
-Until this was written the OSD font was `simsun_en.ttf`, carrying
-`(c) Copyright ZHONGYI Electronic Co. 1995`. SimSun is a commercial typeface
-distributed with Windows, and shipping it from here was not defensible. It is
-replaced by DejaVu Sans Mono, already present in the tree for the OLED code.
-The OSD only ever draws an ASCII timestamp (`%H:%M:%S  %Y-%m-%d`), so nothing
-is lost.
+```bash
+./scripts/sync-vendor.sh            # or: ./scripts/sync-vendor.sh <sdk-path>
+```
+
+The script reads `media/` in the SDK, where these ship as source, so a plain
+SDK clone is enough and no SDK build is required.
 
 ## Disclaimer
 
-This is an inventory of what the files themselves state, assembled by reading
-their headers — not legal advice. If the licensing matters to you, check it
-yourself.
+This inventory records what the files themselves state. It is not legal advice.
