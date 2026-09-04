@@ -30,3 +30,11 @@ BR2_PACKAGE_SQLITE=y    # libsqlite3.so.0  -> sqlite3::sqlite3
 # Not listed, but relied on and already enabled in the vendor defconfig:
 #   BR2_PACKAGE_FREETYPE   libfreetype.so.6  -> freetype::freetype
 #   libiconv arrives as a dependency of other packages
+
+# Only reaches builds started by hand from the buildroot directory. Buildroot
+# drops its own -j when MAKEFLAGS already carries one, and sysdrv/Makefile
+# always passes -j$(SYSDRV_JOBS), so a build through build.sh takes its
+# parallelism from that jobserver and never reads this. Debugging a package
+# with a bare "make" in the buildroot tree does read it, and the vendor base
+# pins it at 4. 0 means one job per CPU plus one, decided at build time.
+BR2_JLEVEL=0

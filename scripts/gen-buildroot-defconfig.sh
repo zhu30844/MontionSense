@@ -18,15 +18,20 @@ OUT="$SDK_DIR/sysdrv/tools/board/buildroot/motionsense_defconfig"
 [ -f "$BASE" ] || { echo "vendor defconfig not found: $BASE" >&2; exit 1; }
 [ -f "$FRAGMENT" ] || { echo "fragment not found: $FRAGMENT" >&2; exit 1; }
 
-# Options to add, and options to switch off. A "# BR2_X is not set" line
-# appended after the base would be read as a comment and change nothing, so
-# anything disabled here is deleted from the base instead.
-packages=$(grep -oE '^BR2_[A-Z0-9_]+=[ynm]' "$FRAGMENT" || true)
+# Options to add or override, and options to switch off. A "# BR2_X is not
+# set" line appended after the base would be read as a comment and change
+# nothing, so anything disabled here is deleted from the base instead. The
+# same goes for an option the base already assigns: the base's line is dropped
+# so the fragment's value is the only one, which is what lets the fragment
+# override a vendor setting rather than only add to it.
+packages=$(grep -E '^BR2_[A-Z0-9_]+=' "$FRAGMENT" || true)
 disabled=$(grep -oE '^# BR2_[A-Z0-9_]+ is not set' "$FRAGMENT" | awk '{print $2}' || true)
 [ -n "$packages$disabled" ] || { echo "no BR2_ entries in $FRAGMENT" >&2; exit 1; }
 
+overridden=$(printf '%s\n' "$packages" | sed -n 's/^\(BR2_[A-Z0-9_]*\)=.*/\1/p')
+
 base_filtered=$(cat "$BASE")
-for opt in $disabled; do
+for opt in $disabled $overridden; do
     base_filtered=$(printf '%s\n' "$base_filtered" | grep -v "^${opt}=" || true)
 done
 
