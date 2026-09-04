@@ -7,8 +7,9 @@ It is built as an application inside the Luckfox SDK, and lives at
 - SDK fork: <https://github.com/zhu30844/luckfox-pico-sdk>
 - This repo is a submodule of it.
 
-Two things get built: `MotionSense`, the C daemon, and the Go agent under
-`agent/` (not yet wired into the SDK build — see *Not covered yet*).
+Two things get built: `MotionSense`, the C daemon, and `motionsense-agent`,
+the Go HTTP UI/API under `agent/`. Both land in `/oem/usr/bin` and are started
+by the same init script.
 
 ---
 
@@ -42,8 +43,9 @@ app stage:
   └─ media     Rockchip media libs (rockit/rkaiq/mpp/rga) -> output/out/media_out
   └─ app       project/app/Makefile
        └─ $(wildcard ./*/Makefile) finds motionsense/Makefile
-            └─ cmake configure + build + install       -> install-sdk/
-            └─ MAROC_COPY_PKG_TO_APP_OUTPUT            -> project/app/out/{bin,share}
+            ├─ c-daemon: cmake configure + build + install -> install-sdk/
+            │            MAROC_COPY_PKG_TO_APP_OUTPUT      -> project/app/out/{bin,share}
+            └─ go-agent: go build                          -> project/app/out/bin/
   └─ project/app/out  ->  output/out/app_out
   └─ __PACKAGE_OEM    ->  output/out/oem/usr/{bin,share}   (build.sh:1379)
   └─ mkfs.ubifs       ->  output/image/oem.img
@@ -67,10 +69,16 @@ standalone flow uses. Two details that bite if you copy it elsewhere:
 
 ```bash
 cd project/app/motionsense
-make          # configure + build + stage into project/app/out
+make            # both binaries, staged into project/app/out
+make c-daemon   # C only
+make go-agent   # Go only
 make clean
-make info     # prints the resolved toolchain / media / output paths
+make info       # prints the resolved toolchain / media / output paths
 ```
+
+`go-agent` depends on `c-daemon` purely for ordering: `Makefile.param` sets
+`MAKEFLAGS += -j`, and without the dependency the two race and
+`MAROC_STRIP_DEBUG_SYMBOL` can catch a half-written agent binary.
 
 Then `./build.sh firmware` from the SDK root to repack images.
 
@@ -85,6 +93,29 @@ The toolchain is resolved in this order: an explicit `-DCMAKE_C_COMPILER`
 (what the SDK build passes), then `$LF_TOOLCHAIN`, then
 `../../../tools/linux/toolchain/...` relative to this tree's place inside the
 SDK. It is no longer vendored here.
+
+### The Go agent
+
+```
+GOOS=linux GOARCH=arm GOARM=7 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w"
+```
+
+No CGO is needed: `modernc.org/sqlite` is a pure-Go implementation, so the
+binary is static and does not link against uclibc. `-s -w -trimpath` takes it
+from 15.7MB to 11MB, which is also why it must not go through the SDK's
+`MAROC_STRIP_DEBUG_SYMBOL` step — that runs GNU `strip`, which is not
+something to point at a Go binary. The Makefile builds it after the strip for
+that reason.
+
+`agent/` has no `vendor/` directory, so the first build downloads modules and
+needs network access. The SDK build already needs network for buildroot, so
+this adds no new requirement, but it does mean a cold build cannot run
+offline.
+
+The agent listens on `:5000`, serves the web assets embedded via `go:embed`,
+and reads frames from the C daemon over `/tmp/motionsense.sock`. It tolerates
+starting before the C daemon: a missing database is logged and skipped, and
+the socket reader retries.
 
 ### Pushing to a running board over adb
 
@@ -141,12 +172,15 @@ the image, so `install()` of the Rockchip `.so` files is skipped whenever
 ## On-device layout
 
 ```
-/oem/usr/bin/MotionSense                     the daemon
+/oem/usr/bin/MotionSense                     the C daemon
+/oem/usr/bin/motionsense-agent               the Go HTTP UI/API, port 5000
 /oem/usr/share/MotionSense/fonts/            OSD font
 /oem/usr/share/MotionSense/config.yaml       seed copy
 /oem/usr/lib/                                Rockchip media libraries
 /etc/init.d/S99motionsense                   start script (from the board overlay)
-/mnt/sdcard/MotionSense/                     recordings, log, live config
+/mnt/sdcard/MotionSense/                     log, live config
+/mnt/sdcard/MotionSense/agent.log            agent log
+/mnt/sdcard/DCIM/                            recordings
 ```
 
 The binary is linked with `RPATH=$ORIGIN/../lib`, which resolves to
@@ -263,10 +297,6 @@ cp sysdrv/tools/board/buildroot/*_defconfig \
 
 ## Not covered yet
 
-- **The Go agent is not in the SDK build.** `agent/` still builds by hand
-  (`GOOS=linux GOARCH=arm GOARM=7 CGO_ENABLED=0 go build`). It needs no CGO —
-  `modernc.org/sqlite` is a pure-Go implementation — so wiring it into
-  `Makefile` is a few lines, but it has not been verified on `GOARM=7`.
 - **No image has been flashed to real hardware since the SDK migration.**
   Everything above is verified at the build-artifact level: dtb contents,
   file placement, `NEEDED` resolution against the image, partition headroom.

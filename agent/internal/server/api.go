@@ -85,9 +85,12 @@ func statusHandler(broker *stream.Broker, start time.Time) func(http.ResponseWri
 		status.AppUptime = time.Since(start).String()
 		status.Clients = broker.ClientCount()
 		status.SystemUptime = (time.Duration(sysInfo.Uptime) * time.Second).String()
-		status.WorkLoad = sysInfo.Loads[0] / 65536.0
-		status.Totalram = sysInfo.Totalram
-		status.Freeram = sysInfo.Freeram
+		// unix.Sysinfo_t's numeric fields are uint64 on 64-bit but uint32 on
+		// 32-bit, which is what the RV1106 target is. Convert explicitly so
+		// this compiles for both.
+		status.WorkLoad = uint64(sysInfo.Loads[0]) / 65536
+		status.Totalram = uint64(sysInfo.Totalram)
+		status.Freeram = uint64(sysInfo.Freeram)
 
 		w.Header().Set("Content-Type", "application/json")
 		err := json.NewEncoder(w).Encode(status)

@@ -22,10 +22,25 @@ include ../Makefile.param
 MS_BUILD_DIR := $(CURRENT_DIR)/build-sdk
 MS_STAGE_DIR := $(CURRENT_DIR)/install-sdk
 
+# Go agent. GOARM=7 for the Cortex-A7, and no CGO: modernc.org/sqlite is a
+# pure-Go implementation, so nothing has to link against uclibc.
+# -s -w -trimpath takes the binary from 15.7MB to 11MB; note this is also why
+# the agent must not go through MAROC_STRIP_DEBUG_SYMBOL below, which runs
+# GNU strip and is not something to point at a Go binary.
+MS_AGENT_DIR := $(CURRENT_DIR)/agent
+MS_AGENT_BIN := motionsense-agent
+MS_GO_ENV := GOOS=linux GOARCH=arm GOARM=7 CGO_ENABLED=0
+
 # Where the SDK's freshly built Rockchip media libraries and headers live.
 MS_MEDIA_DIR := $(RK_APP_PATH_LIB_INCLUDE)
 
-all:
+all: c-daemon go-agent
+
+# Explicit ordering: Makefile.param sets MAKEFLAGS += -j, so without this the
+# two would race and the strip below could catch a half-written agent binary.
+go-agent: c-daemon
+
+c-daemon:
 	@echo -e "$(C_GREEN) [MotionSense] configure $(C_NORMAL)"
 	cmake -S $(CURRENT_DIR) -B $(MS_BUILD_DIR) \
 		-DCMAKE_C_COMPILER=$(RK_APP_CROSS)-gcc \
@@ -40,12 +55,23 @@ all:
 	$(call MAROC_COPY_PKG_TO_APP_OUTPUT, $(RK_APP_OUTPUT)/share/MotionSense, $(MS_STAGE_DIR)/config.yaml)
 	$(call MAROC_STRIP_DEBUG_SYMBOL, $(RK_APP_OUTPUT)/bin)
 
+go-agent:
+	@command -v go >/dev/null || { \
+		echo -e "$(C_RED) [MotionSense] go not found; it builds the agent daemon.$(C_NORMAL)"; \
+		echo "   Use the SDK devcontainer, or install Go and re-run."; \
+		exit 1; }
+	@echo -e "$(C_GREEN) [MotionSense] build agent ($(shell go version 2>/dev/null | cut -d" " -f3)) $(C_NORMAL)"
+	cd $(MS_AGENT_DIR) && $(MS_GO_ENV) \
+		go build -trimpath -ldflags="-s -w" -o $(RK_APP_OUTPUT)/bin/$(MS_AGENT_BIN) .
+
 clean:
 	rm -rf $(MS_BUILD_DIR) $(MS_STAGE_DIR)
+	rm -f $(RK_APP_OUTPUT)/bin/$(MS_AGENT_BIN)
 
 distclean: clean
 
 info:
 	@echo "MotionSense: cross=$(RK_APP_CROSS) media=$(MS_MEDIA_DIR) out=$(RK_APP_OUTPUT)"
+	@echo "      agent: $(MS_GO_ENV) -> $(MS_AGENT_BIN)"
 
-.PHONY: all clean distclean info
+.PHONY: all c-daemon go-agent clean distclean info
