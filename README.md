@@ -9,8 +9,9 @@ Two processes:
 - **`MotionSense`** — the C daemon. Drives the ISP, encoder and IVS motion
   detection through Rockchip's rockit, writes HLS segments and the metadata
   databases.
-- **`motionsense-agent`** — the Go agent. HTTP UI and API on port 5000, reading
-  frames from the daemon over a unix socket.
+- **`motionsense-agent`** — the Go agent. HTTP UI and API, reading frames from the
+  daemon over a unix socket. Serves on port 80 when running as root, 3000
+  otherwise.
 
 ## Features
 
@@ -19,8 +20,7 @@ Two processes:
 - **HLS recording.** One `.ts` per keyframe by default, organised into
   date-based directories with a per-day event database and automatic cleanup
   when free space runs low.
-- **Live view and playback.** MJPEG stream at `/api/stream`, recordings browsable
-  by date, plus a `/api/status` endpoint reporting uptime, memory, load, SoC
+- **Live view and playback.** MJPEG stream at `/api/stream`, recordings browsable by date, plus a `/api/status` endpoint reporting uptime, memory, load, SoC
   temperature and the last day with footage.
 - **OSD timestamp** burned into both the recording and the live stream.
 

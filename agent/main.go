@@ -5,8 +5,11 @@ import (
 	"errors"
 	"io/fs"
 	"log"
+	"net"
 	"net/http"
+	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -16,11 +19,40 @@ import (
 )
 
 const (
-	port            = ":5000"
+	// Port 80 when running as root, so the UI is reachable without one in the
+	// URL; 3000 otherwise, since a non-root process cannot bind below 1024.
+	portPrivileged   = ":80"
+	portUnprivileged = ":3000"
+
 	socketPath      = "/tmp/motionsense-stream.sock"
 	dcimRoot        = "/mnt/sdcard/DCIM"
 	shutdownTimeout = 5 * time.Second
 )
+
+// listenURLs renders the addresses the server can be reached on, so the log
+// says where to point a browser instead of guessing at localhost.
+func listenURLs(port string) string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return "no addresses"
+	}
+	var urls []string
+	for _, a := range addrs {
+		ipnet, ok := a.(*net.IPNet)
+		if !ok || ipnet.IP.IsLoopback() || ipnet.IP.To4() == nil {
+			continue
+		}
+		if port == ":80" {
+			urls = append(urls, "http://"+ipnet.IP.String())
+		} else {
+			urls = append(urls, "http://"+ipnet.IP.String()+port)
+		}
+	}
+	if len(urls) == 0 {
+		return "no addresses"
+	}
+	return strings.Join(urls, " ")
+}
 
 func main() {
 	// cancelled on SIGINT/SIGTERM
@@ -46,9 +78,14 @@ func main() {
 	go stream.ReceiveFrames(ctx, socketPath, broker)
 
 	// webserver
+	port := portUnprivileged
+	if os.Geteuid() == 0 {
+		port = portPrivileged
+	}
+
 	srv := server.New(sub, port, broker, store, dcimRoot)
 	go func() {
-		log.Printf("listening on http://localhost%s", port)
+		log.Printf("listening on %s (%s)", port, listenURLs(port))
 		if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("http server: %v", err)
 		}

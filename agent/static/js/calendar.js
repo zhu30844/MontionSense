@@ -41,16 +41,19 @@ class CalendarApp {
 
     async fetchMotionCounts() {
         try {
-            const response = await fetch('/api/motion_counts');
-            const data = await response.json();
-            
-            this.motionCounts = data.motion_counts.reduce((acc, item) => {
-                acc[item.date] = item.motion_count;
+            const response = await fetch('/api/recordings/calendar');
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            const days = await response.json() || [];
+
+            this.motionCounts = days.reduce((acc, item) => {
+                acc[item.date] = item.motionCount;
                 return acc;
             }, {});
-            
+
             // Calculate max and min for heatmap scaling
-            const counts = data.motion_counts.map(item => item.motion_count);
+            const counts = days.map(item => item.motionCount);
             this.maxCount = Math.max(...counts, 1);
             this.minCount = Math.min(...counts, 0);
             

@@ -188,14 +188,21 @@ class PlaybackApp {
 
     async loadVideoSegments(date) {
         console.log('Loading video segments for date:', date);
-        const response = await fetch(`/api/video_segments?date=${date}`);
+        const response = await fetch(`/api/recordings/${date}`);
         console.log('Video segments API response status:', response.status);
-        
+
         const data = await response.json();
         console.log('Video segments data:', data);
-        
-        if (data && Array.isArray(data.video_segments)) {
-            this.videoSegments = data.video_segments;
+
+        if (data && Array.isArray(data.segments)) {
+            // The API names these segment/startTime; the table below was
+            // written against the older folder/start_time spelling.
+            this.videoSegments = data.segments.map(s => ({
+                folder: s.segment,
+                start_time: s.startTime,
+                total_frames: s.totalFrames,
+                playlist_url: s.playlistUrl,
+            }));
             console.log('Found', this.videoSegments.length, 'video segments');
             this.generateSegmentsTable();
             
@@ -222,14 +229,10 @@ class PlaybackApp {
 
     async loadMotionPoints(date) {
         try {
-            const response = await fetch(`/api/motion_points?date=${date}`);
-            if (response.ok) {
-                const data = await response.json();
-                this.motionPoints = data.motion_points || [];
-                this.updateMotionMarkers();
-            } else {
-                this.motionPoints = [];
-            }
+            // No server-side endpoint for per-day motion points yet; the
+            // timeline markers stay empty until one exists.
+            this.motionPoints = [];
+            this.updateMotionMarkers();
         } catch (error) {
             console.warn('Motion points API not available:', error);
             this.motionPoints = [];
