@@ -19,6 +19,14 @@
 BR2_PACKAGE_LIBYAML=y   # libyaml-0.so.2   -> yaml::yaml
 BR2_PACKAGE_SQLITE=y    # libsqlite3.so.0  -> sqlite3::sqlite3
 
+# ntpd is disabled. The RTC on this board is battery-backed and keeps correct
+# time on its own — verified across a reboot, where the kernel set the system
+# clock from it to the right second. ntpd's first sync then stepped the clock
+# eight hours forward and took three minutes to come back, during which the
+# recorder created a day directory under tomorrow's date. Nothing needs a
+# network time source often enough to be worth that.
+# BR2_PACKAGE_NTP is not set
+
 # Not listed, but relied on and already enabled in the vendor defconfig:
 #   BR2_PACKAGE_FREETYPE   libfreetype.so.6  -> freetype::freetype
 #   libiconv arrives as a dependency of other packages

@@ -537,6 +537,23 @@ than declared. These need merging by hand when syncing upstream:
 | `sysdrv/Makefile` | passes `BR2_CCACHE_DIR`; copies `*_defconfig` so a board can ship its own |
 | `sysdrv/tools/board/buildroot/luckfox_pico_defconfig` | `BR2_DL_DIR` |
 
+Turning a package **off** takes more than listing it. A `# BR2_X is not set`
+line appended after the base defconfig is read as a comment and changes
+nothing, so `gen-buildroot-defconfig.sh` deletes the enabling line from the
+base instead.
+
+Buildroot also never removes what a deselected package already installed.
+`output/target/` is built up incrementally, so those files stay and are packed
+into `rootfs.tar` even though the package is no longer built — deselecting ntp
+left `/usr/sbin/ntpd` and `/etc/init.d/S49ntp` in the image. On an existing
+tree, force the target to be rebuilt:
+
+```bash
+cd sysdrv/source/buildroot/buildroot-2023.02.6 && make target-finalize && make
+```
+
+A clean checkout never sees this: the package is simply never built.
+
 The `sysdrv/Makefile` defconfig copy runs only when buildroot has not been
 extracted yet. After changing `motionsense_defconfig` on an existing tree,
 copy it in manually; otherwise the build uses a stale one:
