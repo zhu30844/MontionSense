@@ -15,6 +15,8 @@ class MotionSenseApp {
                 calendarTitle: '运动检测热力图',
                 calendarDesc: '点击日期查看详细记录',
                 statusText: '连接中...',
+                statusConnected: '已连接',
+                statusDisconnected: '已断开',
                 loadingText: '加载中...',
                 statusCardTitle: '设备状态',
                 labelCpuTemp: '温度',
@@ -34,6 +36,8 @@ class MotionSenseApp {
                 calendarTitle: 'Motion Detection Heatmap',
                 calendarDesc: 'Click on a date to view detailed records',
                 statusText: 'Connecting...',
+                statusConnected: 'Connected',
+                statusDisconnected: 'Disconnected',
                 loadingText: 'Loading...',
                 statusCardTitle: 'Device Status',
                 labelCpuTemp: 'Temperature',
@@ -207,6 +211,10 @@ class MotionSenseApp {
             }
         });
 
+        // statusText is driven by the stream, so restore it after the generic
+        // id-based pass above has written "Connecting..." over it.
+        if (this.streamState) this.setStreamStatus(this.streamState);
+
         // Update navigation items
         document.querySelectorAll('.nav-item span').forEach((span, index) => {
             const keys = ['navLive', 'navCalendar'];
@@ -272,14 +280,35 @@ class MotionSenseApp {
     }
 
     initStreamStatus() {
-        const statusDot = document.querySelector('.status-dot');
-        const statusText = document.getElementById('statusText');
-        
-        // Simulate connection status
-        setTimeout(() => {
-            statusDot.style.background = '#4CAF50';
-            statusText.textContent = this.currentLang === 'zh' ? '已连接' : 'Connected';
-        }, 2000);
+        const img = document.getElementById('streamImage');
+        if (!img) return;
+
+        // Track the real stream rather than a timer. An MJPEG response is a
+        // long-lived multipart body in an <img>: load fires once the first
+        // frame has arrived, error when the connection drops. The old code
+        // just announced "connected" two seconds in, which was both late and
+        // never wrong.
+        img.addEventListener('load', () => this.setStreamStatus('connected'));
+        img.addEventListener('error', () => this.setStreamStatus('disconnected'));
+
+        // A cached or already-complete image fires no load event.
+        if (img.complete && img.naturalWidth > 0) {
+            this.setStreamStatus('connected');
+        }
+    }
+
+    setStreamStatus(state) {
+        this.streamState = state;
+        const dot = document.querySelector('.status-dot');
+        const text = document.getElementById('statusText');
+        const t = this.translations[this.currentLang];
+
+        if (dot) dot.style.background = state === 'connected' ? '#4CAF50' : '#f44336';
+        if (text) {
+            text.textContent = state === 'connected'
+                ? t.statusConnected
+                : t.statusDisconnected;
+        }
     }
 
     toggleFullscreen() {

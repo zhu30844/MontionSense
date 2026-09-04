@@ -352,8 +352,10 @@ body {
 }
 
 .status-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    /* Flex rather than grid so a short last row spreads across the width
+     * instead of leaving a gap where the missing cells would be. */
+    display: flex;
+    flex-wrap: wrap;
     gap: 1px;
     background: #eceef3;
 }
@@ -364,6 +366,8 @@ body {
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
+    /* grow to fill the row, never narrower than this */
+    flex: 1 1 150px;
 }
 
 .status-label {
