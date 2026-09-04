@@ -175,10 +175,13 @@ class MotionSenseApp {
             if (s.frameFlow && this.frameFlowWasDown) {
                 this.reconnectStream();
             }
-            // The server has frames but this <img> has not received one for a
-            // while: our connection died without an error event, which is what
-            // restarting the agent under a live page looks like.
-            if (s.frameFlow && this.lastFrameAt && Date.now() - this.lastFrameAt > 5000) {
+            // The server has frames but this <img> has not had one in a long
+            // while: the connection died without an error event, which is what
+            // restarting the agent under an open page looks like. Fifteen
+            // seconds, because a page that is merely hidden stops decoding and
+            // a shorter window reconnects a stream that was working.
+            if (s.frameFlow && this.lastFrameAt &&
+                Date.now() - this.lastFrameAt > 15000 && !document.hidden) {
                 this.reconnectStream();
             }
             this.frameFlowWasDown = !s.frameFlow;
@@ -356,7 +359,13 @@ class MotionSenseApp {
         if (!img || this.reconnectTimer) return;
         this.reconnectTimer = setTimeout(() => {
             this.reconnectTimer = null;
+            // Clearing src aborts the request the element is holding. Assigning
+            // a new one without this leaves the old multipart response open on
+            // the server, and each reconnect adds another: the viewer count
+            // climbed to six for a single page.
+            img.removeAttribute('src');
             img.src = `/api/stream?t=${Date.now()}`;
+            this.lastFrameAt = Date.now();
         }, 1000);
     }
 
