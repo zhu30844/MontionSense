@@ -335,7 +335,13 @@ class PlaybackApp {
             return;
         }
 
-        const videoSource = `/hls/${this.currentDate}/${folder}/index.m3u8`;
+        // Use the URL the API gave us rather than rebuilding the path here;
+        // it was constructed as /hls/... while the server serves /media/...,
+        // so every segment 404'd.
+        const segment = this.videoSegments.find(s => s.folder === folder);
+        const videoSource = segment && segment.playlist_url
+            ? segment.playlist_url
+            : `/media/${this.currentDate}/${folder}/index.m3u8`;
         console.log('Video source:', videoSource);
         
         this.player.src({
