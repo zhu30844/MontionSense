@@ -160,12 +160,16 @@ class MotionSenseApp {
         set('valCpuTemp', s.cpuTemp || '—',
             isNaN(temp) ? null : temp >= 75 ? 'alert' : temp >= 60 ? 'warn' : null);
 
-        // workLoad already has rockit's uninterruptible threads discounted
-        // server-side, so these thresholds apply to load actually competing
-        // for the core.
+        // Raw load average. It sits near 10 on an idle device: rockit parks
+        // about ten kernel threads in uninterruptible sleep waiting on
+        // hardware, and Linux counts those, while only one thread is ever
+        // runnable. Thresholds are set above that baseline rather than
+        // adjusting the number, which would need the D-state count and the
+        // one-minute average to agree — they do not while the average is
+        // still climbing after boot.
         const load = Number(s.workLoad) || 0;
         set('valWorkLoad', load.toFixed(2),
-            load >= 4 ? 'alert' : load >= 2 ? 'warn' : null);
+            load >= 16 ? 'alert' : load >= 13 ? 'warn' : null);
 
         const total = Number(s.totalram) || 0;
         const free = Number(s.freeram) || 0;
@@ -175,6 +179,12 @@ class MotionSenseApp {
                 usedPct >= 90 ? 'alert' : usedPct >= 75 ? 'warn' : null);
         } else {
             set('valMemory', '—');
+        }
+
+        // The status poll is the only thing that can see a stalled stream:
+        // the <img> stays "loaded" with a connection open and no frames.
+        if (typeof s.streamLive === 'boolean') {
+            this.setStreamStatus(s.streamLive ? 'connected' : 'disconnected');
         }
 
         set('valClients', String(s.clients ?? 0));
