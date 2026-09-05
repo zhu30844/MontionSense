@@ -58,8 +58,9 @@ install and nothing to configure.
 
   The rule lists ntfs, ext2 and ext3 as well, but this kernel builds none of
   them, so those branches never fire.
-- Enough card for the footage you want to keep. Recording stops and old days
-  are deleted below `storage.disk_free_min_mb`, 2 GB by default.
+- Enough card for the footage you want to keep. Below
+  `storage.disk_free_min_mb`, 2 GB by default, the oldest day is deleted to
+  make room; recording itself never stops.
 - x86-64 Linux host
 
 ## Building
