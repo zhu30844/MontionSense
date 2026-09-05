@@ -4,6 +4,20 @@ Motion-triggered video recording for the Luckfox Pico Pro Max (Rockchip
 RV1106). Records H.264 to HLS on the SD card, serves a live MJPEG stream and a
 playback UI over HTTP, and logs motion events to SQLite.
 
+## What it is for
+
+Originally written for a shared fridge — who took what. It may suit other
+scenes of the same shape, static for hours with a few seconds of activity: a
+dorm room, a store cupboard, a warehouse aisle.
+
+- **Watch a whole day.** Idle stretches play back compressed, so nothing has
+  to be skipped.
+- **See the moment at full speed.** Motion is recorded and played at the high
+  rate.
+- **Keep a day small.** The same switch is what holds the footage down.
+- **See where the activity was.** Every switch to the high rate leaves a mark
+  on the seek bar.
+
 ## Features
 
 - **Adaptive frame rate.** Records at 1 fps while idle and 30 fps while motion
@@ -95,6 +109,23 @@ itself — provided the SDK's build dependencies are installed.
 on-device layout and what to check when something does not come up.
 [docs/DEVNOTES.md](docs/DEVNOTES.md) covers working on the board: how to connect to it,
 what to do when a link drops, and the bugs that present as something else.
+
+## Known issues
+
+- Switching between views raises the client count. Above about five clients
+  the agent stops responding for a while.
+- Motion has no hold window: the frame rate returns to 1 fps as soon as a
+  still frame is reported. Events are typically under a second, so the end of
+  an action can be recorded at the idle rate.
+- Daylight saving is not honoured. Only the standard-time half of `/etc/TZ` is
+  read, so a zone with DST is an hour out for half the year.
+
+## Planned
+
+- Watchdog.
+- Peripherals.
+- Authentication.
+- OTA.
 
 ## Scope
 
